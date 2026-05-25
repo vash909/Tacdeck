@@ -6,6 +6,7 @@ void IRAM_ATTR Keyboard::isrUp()    { if (_instance) _instance->_tbDy--; }
 void IRAM_ATTR Keyboard::isrDown()  { if (_instance) _instance->_tbDy++; }
 void IRAM_ATTR Keyboard::isrLeft()  { if (_instance) _instance->_tbDx--; }
 void IRAM_ATTR Keyboard::isrRight() { if (_instance) _instance->_tbDx++; }
+void IRAM_ATTR Keyboard::isrClick() { if (_instance) _instance->_tbClick = true; }
 
 bool Keyboard::begin() {
     _instance = this;
@@ -25,6 +26,10 @@ bool Keyboard::begin() {
     attachInterrupt(digitalPinToInterrupt(TDECK_TB_DOWN),  isrDown,  FALLING);
     attachInterrupt(digitalPinToInterrupt(TDECK_TB_LEFT),  isrLeft,  FALLING);
     attachInterrupt(digitalPinToInterrupt(TDECK_TB_RIGHT), isrRight, FALLING);
+
+    // Trackball click button (GPIO0 = BOOT, active LOW, pulled up by board)
+    pinMode(TDECK_TB_CLICK, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(TDECK_TB_CLICK), isrClick, FALLING);
 
     _initialized = true;
     Serial.println("[KB] Keyboard + trackball ready");
@@ -60,17 +65,29 @@ bool Keyboard::getTrackball(int& dx, int& dy, bool& click) {
     _tbDx = 0; _tbDy = 0; _tbClick = false;
     interrupts();
 
-    if (dx != 0 || dy != 0 || click) {
-        // Debounce
-        uint32_t now = millis();
+    if (dx == 0 && dy == 0 && !click) return false;
+
+    uint32_t now = millis();
+
+    // Directional movement: debounce 20 ms (encoder-style noise)
+    if (dx != 0 || dy != 0) {
         if (now - _lastTbTime < 20) {
-            dx = 0; dy = 0; click = false;
-            return false;
+            dx = 0; dy = 0;
+        } else {
+            _lastTbTime = now;
         }
-        _lastTbTime = now;
-        return true;
     }
-    return false;
+
+    // Click: separate 80 ms debounce (mechanical button)
+    if (click) {
+        if (now - _lastClickTime < 80) {
+            click = false;
+        } else {
+            _lastClickTime = now;
+        }
+    }
+
+    return (dx != 0 || dy != 0 || click);
 }
 
 char Keyboard::_readI2CKey() {
@@ -84,7 +101,8 @@ char Keyboard::_readI2CKey() {
         // Special keys:
         switch (raw) {
             case 0x08: return KEY_BACKSPACE;
-            case 0x0D: return KEY_ENTER;
+            case 0x0A: return KEY_ENTER;   // '\n' — some keyboard firmware variants
+            case 0x0D: return KEY_ENTER;   // '\r' — standard
             case 0x11: return KEY_UP;
             case 0x12: return KEY_DOWN;
             case 0x13: return KEY_LEFT;

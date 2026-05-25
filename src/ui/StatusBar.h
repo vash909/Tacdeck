@@ -40,7 +40,12 @@ private:
     char      _lastTime[9] = "";
     float     _lastRSSI    = 0;
 
-    void _drawFull();
-    void _drawBattery(int x, int y, uint8_t pct);
+    void _drawBackground();
+    void _clearRegion(int x, int w);
+    void _drawMode();
+    void _drawGPS();
+    void _drawTime();
+    void _drawRSSI();
+    void _drawBattery();
     uint8_t _readBatteryPct();
 };

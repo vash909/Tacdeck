@@ -47,7 +47,8 @@ private:
     volatile int  _tbDx   = 0;
     volatile int  _tbDy   = 0;
     volatile bool _tbClick= false;
-    uint32_t      _lastTbTime = 0;
+    uint32_t      _lastTbTime    = 0;
+    uint32_t      _lastClickTime = 0;
 
     // Trackball ISR (static for IRAM_ATTR)
     static Keyboard* _instance;
@@ -55,6 +56,7 @@ private:
     static void IRAM_ATTR isrDown();
     static void IRAM_ATTR isrLeft();
     static void IRAM_ATTR isrRight();
+    static void IRAM_ATTR isrClick();
 
     char _readI2CKey();
 };

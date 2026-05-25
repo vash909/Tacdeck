@@ -5,112 +5,232 @@
 #include "Widgets.h"
 #include <Arduino.h>
 
+// ================================================================
+// Layout constants (x positions inside the 320×24 bar)
+// ================================================================
+static constexpr int SB_H      = STATUS_BAR_H;  // 24px
+static constexpr int SB_W      = 320;
+
+static constexpr int X_MODE    = 4;             // mode label start
+static constexpr int W_MODE    = 70;
+static constexpr int X_GPS     = 78;
+static constexpr int W_GPS     = 60;
+static constexpr int X_TIME    = 152;
+static constexpr int W_TIME    = 54;
+static constexpr int X_RSSI    = 222;
+static constexpr int W_RSSI    = 36;
+static constexpr int X_BAT     = 265;
+static constexpr int W_BAT     = 46;            // icon(22)+nub(2)+margin
+static constexpr int TEXT_Y    = 8;
+
+// ================================================================
 void StatusBar::begin(Display* disp, GPS* gps, Radio* radio) {
-    _disp  = disp;
-    _gps   = gps;
-    _radio = radio;
-    _dirty = true;
+    _disp      = disp;
+    _gps       = gps;
+    _radio     = radio;
+    _dirty     = true;
+    _lastBatPct= 255;   // force first draw
+    _lastFix   = false;
+    _lastSats  = 255;
+    _lastTime[0] = '\0';
 }
 
 void StatusBar::setModeName(const char* name, uint16_t color) {
     strncpy(_modeName, name, sizeof(_modeName) - 1);
     _modeColor = color;
-    _dirty = true;
+    _dirty     = true;
 }
 
+// ================================================================
+// update() — called at 1 Hz. Performs differential redraws:
+// only the elements whose value actually changed are touched.
+// ================================================================
 void StatusBar::update() {
     if (!_disp) return;
-    _drawFull();
-    _dirty = false;
-}
 
-void StatusBar::_drawFull() {
-    auto& gfx = _disp->gfx();
-    constexpr int H = STATUS_BAR_H;
-
-    // Background
-    gfx.fillRect(0, 0, 320, H, COL_BG_HEADER);
-    gfx.drawFastHLine(0, H - 1, 320, COL_DIVIDER);
-
-    // -- Mode name (left) --
-    gfx.setTextSize(FONT_TINY);
-    gfx.setTextColor(_modeColor, COL_BG_HEADER);
-    gfx.setCursor(4, 8);
-    gfx.print(_modeName);
-
-    // -- GPS status (center-left) --
-    if (_gps) {
-        bool fix  = _gps->hasFix();
-        uint8_t s = _gps->sats();
-        char buf[16];
-
-        if (fix) {
-            snprintf(buf, sizeof(buf), "GPS %usat", s);
-            gfx.setTextColor(COL_GREEN, COL_BG_HEADER);
-        } else {
-            snprintf(buf, sizeof(buf), "No GPS");
-            gfx.setTextColor(COL_RED, COL_BG_HEADER);
-        }
-        gfx.setCursor(80, 8);
-        gfx.print(buf);
+    if (_dirty) {
+        // Full redraw (screen change, first boot, etc.)
+        _drawBackground();
+        _drawMode();
+        _drawGPS();
+        _drawTime();
+        _drawRSSI();
+        _drawBattery();
+        _dirty = false;
+        return;
     }
 
-    // -- UTC time (center) --
+    // --- Differential updates ---
+    bool changed = false;
+
+    // Mode — only changes via setModeName(); already handled by _dirty flag
+    // (nothing to do here)
+
+    // GPS
+    bool  newFix  = _gps ? _gps->hasFix()  : false;
+    uint8_t newSats = _gps ? _gps->sats()  : 0;
+    if (newFix != _lastFix || newSats != _lastSats) {
+        _clearRegion(X_GPS, W_GPS);
+        _drawGPS();
+        changed = true;
+    }
+
+    // Time
+    char newTime[9] = "--:--:--";
     if (_gps && _gps->hasFix()) {
         const GpsData& d = _gps->data();
-        char timebuf[10];
-        snprintf(timebuf, sizeof(timebuf), "%02u:%02u:%02u",
+        snprintf(newTime, sizeof(newTime), "%02u:%02u:%02u",
                  d.hour, d.minute, d.second);
-        gfx.setTextColor(COL_CYAN, COL_BG_HEADER);
-        gfx.setCursor(152, 8);
-        gfx.print(timebuf);
-    } else {
-        gfx.setTextColor(COL_TEXT_DIM, COL_BG_HEADER);
-        gfx.setCursor(152, 8);
-        gfx.print("--:--:--");
+    }
+    if (strcmp(newTime, _lastTime) != 0) {
+        _clearRegion(X_TIME, W_TIME);
+        _drawTime();
+        changed = true;
     }
 
-    // -- RSSI indicator (right area) --
+    // RSSI — update every tick but only repaint if meaningfully different
     if (_radio && _radio->ready()) {
-        float rssi = _radio->getRSSI();
-        drawRSSIBar(&gfx, 240, 6, 30, 12, rssi);
+        float r = _radio->getRSSI();
+        if (fabsf(r - _lastRSSI) >= 2.0f) {
+            _clearRegion(X_RSSI, W_RSSI);
+            _drawRSSI();
+            changed = true;
+        }
     }
 
-    // -- Battery (far right) --
-    uint8_t batPct = _readBatteryPct();
-    _drawBattery(276, 4, batPct);
+    // Battery — smoothed ADC; only redraw when % changes
+    uint8_t newPct = _readBatteryPct();
+    if (newPct != _lastBatPct) {
+        _clearRegion(X_BAT, W_BAT);
+        _drawBattery();
+        changed = true;
+    }
+
+    (void)changed; // suppress unused warning
 }
 
-void StatusBar::_drawBattery(int x, int y, uint8_t pct) {
+// ================================================================
+// Internal helpers
+// ================================================================
+
+void StatusBar::_drawBackground() {
     auto& gfx = _disp->gfx();
-    // Battery icon 20x12 + 2x6 terminal
-    constexpr int W = 20, H = 12;
-    uint16_t col = pct > 50 ? COL_GREEN : (pct > 20 ? COL_YELLOW : COL_RED);
+    gfx.fillRect(0, 0, SB_W, SB_H, COL_BG_HEADER);
+    gfx.drawFastHLine(0, SB_H - 1, SB_W, COL_DIVIDER);
+}
 
-    gfx.drawRect(x, y, W, H, COL_TEXT_DIM);
-    gfx.fillRect(x + W, y + 3, 2, H - 6, COL_TEXT_DIM);  // terminal nub
+// Erase a vertical slice of the bar (prepare for redraw of one element)
+void StatusBar::_clearRegion(int x, int w) {
+    auto& gfx = _disp->gfx();
+    gfx.fillRect(x, 0, w, SB_H - 1, COL_BG_HEADER);
+}
 
-    int fill = (int)(pct * (W - 2) / 100);
-    gfx.fillRect(x + 1, y + 1, fill, H - 2, col);
-    gfx.fillRect(x + 1 + fill, y + 1, W - 2 - fill, H - 2, COL_BG);
-
-    // Percentage text inside battery
+void StatusBar::_drawMode() {
+    auto& gfx = _disp->gfx();
     gfx.setTextSize(FONT_TINY);
-    gfx.setTextColor(pct > 50 ? COL_BG : COL_TEXT, COL_BG);
-    char buf[5]; snprintf(buf, sizeof(buf), "%u%%", pct);
-    int tw = strlen(buf) * 6;
-    gfx.setCursor(x + (W - tw) / 2, y + 2);
+    gfx.setTextColor(_modeColor, COL_BG_HEADER);
+    gfx.setCursor(X_MODE, TEXT_Y);
+    gfx.print(_modeName);
+}
+
+void StatusBar::_drawGPS() {
+    if (!_gps) return;
+    auto& gfx = _disp->gfx();
+    _lastFix  = _gps->hasFix();
+    _lastSats = _gps->sats();
+
+    char buf[12];
+    if (_lastFix) {
+        snprintf(buf, sizeof(buf), "GPS %u\xB0", _lastSats);  // degree symbol
+        gfx.setTextColor(COL_GREEN, COL_BG_HEADER);
+    } else {
+        snprintf(buf, sizeof(buf), "No GPS");
+        gfx.setTextColor(COL_TEXT_DIM, COL_BG_HEADER);
+    }
+    gfx.setTextSize(FONT_TINY);
+    gfx.setCursor(X_GPS, TEXT_Y);
     gfx.print(buf);
 }
 
+void StatusBar::_drawTime() {
+    auto& gfx = _disp->gfx();
+    if (_gps && _gps->hasFix()) {
+        const GpsData& d = _gps->data();
+        snprintf(_lastTime, sizeof(_lastTime), "%02u:%02u:%02u",
+                 d.hour, d.minute, d.second);
+        gfx.setTextColor(COL_CYAN, COL_BG_HEADER);
+    } else {
+        strncpy(_lastTime, "--:--:--", sizeof(_lastTime));
+        gfx.setTextColor(COL_TEXT_DIM, COL_BG_HEADER);
+    }
+    gfx.setTextSize(FONT_TINY);
+    gfx.setCursor(X_TIME, TEXT_Y);
+    gfx.print(_lastTime);
+}
+
+void StatusBar::_drawRSSI() {
+    if (!_radio || !_radio->ready()) return;
+    auto& gfx = _disp->gfx();
+    _lastRSSI = _radio->getRSSI();
+    drawRSSIBar(&gfx, X_RSSI, 6, W_RSSI - 6, 12, _lastRSSI);
+}
+
+void StatusBar::_drawBattery() {
+    auto& gfx = _disp->gfx();
+    _lastBatPct = _readBatteryPct();
+    uint8_t pct = _lastBatPct;
+
+    constexpr int x = X_BAT;
+    constexpr int y = 4;
+    constexpr int W = 20;
+    constexpr int H = 16;
+
+    uint16_t col = pct > 60 ? COL_GREEN
+                 : pct > 25 ? COL_YELLOW
+                 :             COL_RED;
+
+    // Outline
+    gfx.drawRect(x, y, W, H, COL_TEXT_DIM);
+    // Terminal nub
+    gfx.fillRect(x + W, y + 5, 2, H - 10, COL_TEXT_DIM);
+
+    // Fill bar
+    int fill = (int)((uint32_t)pct * (W - 2) / 100);
+    if (fill > W - 2) fill = W - 2;
+    gfx.fillRect(x + 1, y + 1, fill,       H - 2, col);
+    gfx.fillRect(x + 1 + fill, y + 1, W - 2 - fill, H - 2, COL_BG_HEADER);
+
+    // Percentage label to the right of icon
+    gfx.setTextSize(FONT_TINY);
+    gfx.setTextColor(COL_TEXT_DIM, COL_BG_HEADER);
+    char buf[5];
+    snprintf(buf, sizeof(buf), "%u%%", pct);
+    gfx.setCursor(x + W + 4, TEXT_Y);
+    gfx.print(buf);
+}
+
+// ================================================================
+// Battery ADC — 8-sample oversampling + hysteresis
+// ================================================================
 uint8_t StatusBar::_readBatteryPct() {
-    // T-Deck battery ADC: GPIO4, voltage divider 100k/100k
-    // BAT_ADC reads 0-4095, Vref=3.3V, divider factor=2
-    uint16_t raw = analogRead(TDECK_BATTERY_ADC);
-    float vBat   = (raw / 4095.0f) * 3.3f * 2.0f;
-    // LiPo: 3.0V=0%, 4.2V=100%
-    float pct = (vBat - 3.0f) / 1.2f * 100.0f;
+    // Oversample to reduce ADC noise
+    uint32_t sum = 0;
+    for (int i = 0; i < 8; i++) {
+        sum += analogRead(TDECK_BATTERY_ADC);
+        delayMicroseconds(200);
+    }
+    float raw  = sum / 8.0f;
+    float vBat = (raw / 4095.0f) * 3.3f * 2.0f;  // voltage divider ×2
+    float pct  = (vBat - 3.0f) / 1.2f * 100.0f;  // 3.0V=0%, 4.2V=100%
     if (pct < 0)   pct = 0;
     if (pct > 100) pct = 100;
-    return (uint8_t)pct;
+
+    uint8_t newPct = (uint8_t)pct;
+
+    // Hysteresis: only accept change if it differs by ≥2% from last value,
+    // or if this is the first reading (lastBatPct == 255)
+    if (_lastBatPct == 255) return newPct;
+    int diff = (int)newPct - (int)_lastBatPct;
+    if (diff < 0) diff = -diff;
+    return (diff >= 2) ? newPct : _lastBatPct;
 }

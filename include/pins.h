@@ -50,7 +50,7 @@
 #define TDECK_TB_RIGHT       2   // G02
 #define TDECK_TB_DOWN       15   // G03
 #define TDECK_TB_LEFT        1   // G04
-// Trackball click comes as key 0x0D from keyboard controller
+#define TDECK_TB_CLICK       0   // GPIO0 = BOOT button = trackball click (active LOW)
 
 // ---------- Touch Controller (GT911, I2C 0x5D or 0x14) ----------
 #define TDECK_TOUCH_INT     16
