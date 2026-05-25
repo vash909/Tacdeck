@@ -15,35 +15,35 @@ public:
         // SPI bus
         {
             auto cfg = _bus.config();
-            cfg.spi_host    = SPI3_HOST;
-            cfg.spi_mode    = 2;
-            cfg.freq_write  = 80000000;
-            cfg.freq_read   = 20000000;
+            cfg.spi_host    = SPI3_HOST;    // HSPI — shared with LoRa radio
+            cfg.spi_mode    = 3;            // ST7789 on T-Deck Plus: CPOL=1 CPHA=1
+            cfg.freq_write  = 40000000;     // 40 MHz; safe with shared bus
+            cfg.freq_read   = 16000000;
             cfg.pin_sclk    = TDECK_SPI_SCK;
             cfg.pin_mosi    = TDECK_SPI_MOSI;
             cfg.pin_miso    = TDECK_SPI_MISO;
             cfg.pin_dc      = TDECK_LCD_DC;
-            cfg.use_lock    = true;          // allow shared SPI
+            cfg.use_lock    = true;         // enable bus-lock for sharing
             _bus.config(cfg);
             _panel.setBus(&_bus);
         }
-        // Panel
+        // Panel — physical dimensions are PORTRAIT (240×320); setRotation(1) → landscape
         {
             auto cfg = _panel.config();
-            cfg.pin_cs      = TDECK_LCD_CS;
-            cfg.pin_rst     = TDECK_LCD_RST;
-            cfg.panel_width = TDECK_LCD_WIDTH;
-            cfg.panel_height= TDECK_LCD_HEIGHT;
-            cfg.offset_x    = 0;
-            cfg.offset_y    = 0;
-            cfg.offset_rotation = 0;
+            cfg.pin_cs           = TDECK_LCD_CS;
+            cfg.pin_rst          = TDECK_LCD_RST;   // -1 (no HW reset)
+            cfg.panel_width      = 240;              // physical portrait width
+            cfg.panel_height     = 320;              // physical portrait height
+            cfg.offset_x         = 0;
+            cfg.offset_y         = 0;
+            cfg.offset_rotation  = 0;
             cfg.dummy_read_pixel = 8;
             cfg.dummy_read_bits  = 1;
-            cfg.readable    = false;
-            cfg.invert      = true;          // ST7789 invert
-            cfg.rgb_order   = false;
-            cfg.dlen_16bit  = false;
-            cfg.bus_shared  = true;          // shared SPI
+            cfg.readable         = false;
+            cfg.invert           = true;             // ST7789 needs invert
+            cfg.rgb_order        = false;
+            cfg.dlen_16bit       = false;
+            cfg.bus_shared       = true;             // shared SPI bus
             _panel.config(cfg);
         }
         // Backlight

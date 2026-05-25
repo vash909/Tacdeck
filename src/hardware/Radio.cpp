@@ -4,9 +4,12 @@
 
 // ================================================================
 // Constructor: bind SPI pins before SX1262 constructor
+// Uses HSPI (= SPI3_HOST) — same SPI host as LovyanGFX display.
+// The bus is pre-initialised in main.cpp before display.begin(), so
+// _spi.begin() here just re-attaches to the already-configured host.
 // ================================================================
 Radio::Radio()
-  : _spi(FSPI),
+  : _spi(HSPI),
     _radio(new Module(TDECK_LORA_CS, TDECK_LORA_DIO1,
                       TDECK_LORA_RST, TDECK_LORA_BUSY, _spi))
 {}
@@ -15,9 +18,11 @@ Radio::Radio()
 bool Radio::begin() {
     if (_initialized) return true;
 
-    // Start SPI on the shared bus (LCD uses SPI3_HOST via LovyanGFX,
-    // we use FSPI here — same physical pins, different SW peripheral)
-    _spi.begin(TDECK_SPI_SCK, TDECK_SPI_MISO, TDECK_SPI_MOSI, TDECK_LORA_CS);
+    // Attach to the shared SPI3_HOST bus (already initialised in main.cpp).
+    // Passing SS=-1 disables hardware CS — RadioLib manages CS via GPIO.
+    // This call is safe even after LovyanGFX has used the same host:
+    // Arduino's SPIClass returns the existing handle without re-routing GPIOs.
+    _spi.begin(TDECK_SPI_SCK, TDECK_SPI_MISO, TDECK_SPI_MOSI, -1);
 
     // Default LoRa init
     LoRaCfg def;

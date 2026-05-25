@@ -12,6 +12,7 @@
 // ================================================================
 
 #include <Arduino.h>
+#include <SPI.h>
 #include "hardware/Display.h"
 #include "hardware/Radio.h"
 #include "hardware/GPS.h"
@@ -22,6 +23,12 @@
 #include "utils/Storage.h"
 #include "pins.h"
 #include "config.h"
+
+// ---- Shared SPI bus (SPI3_HOST / HSPI) ----
+// Pre-initialised here so both LovyanGFX and RadioLib share the same
+// Arduino SPI handle. LovyanGFX will detect the bus as already running
+// and attach its device without re-routing the GPIO matrix.
+static SPIClass _sharedSPI(HSPI);
 
 // ---- Global singletons ----
 Display    display;
@@ -97,7 +104,18 @@ void setup() {
     Serial.begin(115200);
     Serial.println("\n========== " FIRMWARE_NAME " " FIRMWARE_VERSION " ==========");
 
-    // ----- Display (must come first) -----
+    // ----- Power on all peripherals (must be first) -----
+    pinMode(TDECK_POWERON, OUTPUT);
+    digitalWrite(TDECK_POWERON, HIGH);
+    delay(10);
+
+    // ----- Pre-initialise shared SPI3_HOST (HSPI) bus -----
+    // This must happen BEFORE display.begin() so that Arduino's internal
+    // _hw_spi[HSPI] handle exists when LovyanGFX and RadioLib both try to
+    // attach to the same SPI3_HOST peripheral.
+    _sharedSPI.begin(TDECK_SPI_SCK, TDECK_SPI_MISO, TDECK_SPI_MOSI, -1);
+
+    // ----- Display -----
     display.begin();
     drawBootScreen();
 
