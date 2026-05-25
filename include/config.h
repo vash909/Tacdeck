@@ -142,6 +142,7 @@
 #define NVS_KEY_WSPR_GRID      "wspr_grid"
 #define NVS_KEY_WSPR_PWR       "wspr_pwr"
 #define NVS_KEY_CW_TEXT        "cw_text"
+#define NVS_KEY_CW_FREQ        "cw_freq"
 #define NVS_KEY_MESH_NODE_ID   "mesh_id"
 // WiFi
 #define NVS_KEY_WIFI_SSID      "wifi_ssid"

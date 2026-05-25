@@ -162,10 +162,12 @@ bool APRSUtils::decode(const uint8_t* data, size_t len, APRSPacket& out) {
     if (!parseHeader(pkt, out, &info)) {
         // No header — treat entire packet as info
         strncpy(out.info, pkt, sizeof(out.info) - 1);
+        out.info[sizeof(out.info) - 1] = '\0';
         return true;
     }
 
     strncpy(out.info, info, sizeof(out.info) - 1);
+    out.info[sizeof(out.info) - 1] = '\0';
 
     // Decode info field
     decodePosition(info, out);

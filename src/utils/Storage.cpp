@@ -16,7 +16,7 @@ void Storage::end() {
 }
 
 bool Storage::getString(const char* key, char* out, size_t sz, const char* def) {
-    if (!_open || !key || !out) return false;
+    if (!_open || !key || !out || sz == 0) return false;
     String s = _prefs.getString(key, def ? def : "");
     strncpy(out, s.c_str(), sz - 1);
     out[sz - 1] = '\0';

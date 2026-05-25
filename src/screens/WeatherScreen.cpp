@@ -31,10 +31,13 @@ void WeatherScreen::update() {
         _dirty = false;
     }
 
-    static uint32_t lastRefresh = 0;
-    if (millis() - lastRefresh > 2000) {
-        lastRefresh = millis();
-        _dirty = true;
+    // Periodic partial refresh (age timers, RSSI text) without full-screen redraw.
+    static uint32_t lastLiveRefresh = 0;
+    if (millis() - lastLiveRefresh > 1000) {
+        lastLiveRefresh = millis();
+        _drawStatusLine();
+        if (_showRaw) _drawRawLog();
+        else          _drawSensorGrid();
     }
 }
 
@@ -69,7 +72,11 @@ void WeatherScreen::_pollRx() {
         snprintf(line, sizeof(line), "[%s] %.1fC %.0f%% %.0fdBm",
                  sensor.id, sensor.tempC, sensor.humRH, (double)pkt.rssi);
         _rawLog.addLine(line);
-        _dirty = true;
+        if (!_dirty) {
+            _drawStatusLine();
+            if (_showRaw) _drawRawLog();
+            else          _drawSensorGrid();
+        }
     } else {
         // Log raw hex
         char line[54];
@@ -81,6 +88,7 @@ void WeatherScreen::_pollRx() {
         }
         snprintf(line, sizeof(line), "[RAW] %s (%.0fdBm)", hex, (double)pkt.rssi);
         _rawLog.addLine(line);
+        if (!_dirty && _showRaw) _drawRawLog();
     }
 }
 
@@ -163,16 +171,7 @@ void WeatherScreen::_drawAll() {
     gfx.fillRect(0, STATUS_BAR_H, 320, CONTENT_H + HINT_BAR_H, COL_BG);
     drawHeader(&gfx, "Weather Sensors", COL_WEATHER);
 
-    // Status
-    char stLine[40];
-    snprintf(stLine, sizeof(stLine),
-             "433.92MHz OOK  RSSI:%.0fdBm  %d sensors",
-             (double)_listenRSSI, _sensorCount);
-    gfx.setTextSize(FONT_TINY);
-    gfx.setTextColor(COL_TEXT_DIM, COL_BG);
-    gfx.setCursor(2, 47);
-    gfx.print(stLine);
-    gfx.drawFastHLine(0, 57, 320, COL_DIVIDER);
+    _drawStatusLine();
 
     // Tabs
     drawButton(&gfx,   0, 58, 90, 12, "Sensors", !_showRaw, COL_WEATHER);
@@ -185,9 +184,25 @@ void WeatherScreen::_drawAll() {
     drawHints(&gfx, "HOLD=Back", "TAB=Switch", "R=Clear");
 }
 
+void WeatherScreen::_drawStatusLine() {
+    auto& gfx = _disp->gfx();
+    gfx.fillRect(0, 47, 320, 10, COL_BG);
+
+    char stLine[40];
+    snprintf(stLine, sizeof(stLine),
+             "433.92MHz OOK  RSSI:%.0fdBm  %d sensors",
+             (double)_listenRSSI, _sensorCount);
+    gfx.setTextSize(FONT_TINY);
+    gfx.setTextColor(COL_TEXT_DIM, COL_BG);
+    gfx.setCursor(2, 47);
+    gfx.print(stLine);
+    gfx.drawFastHLine(0, 57, 320, COL_DIVIDER);
+}
+
 void WeatherScreen::_drawSensorGrid() {
     auto& gfx = _disp->gfx();
     constexpr int Y0 = 73;
+    gfx.fillRect(0, Y0, 320, 140, COL_BG);
 
     if (_sensorCount == 0) {
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);

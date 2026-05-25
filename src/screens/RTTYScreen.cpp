@@ -131,6 +131,7 @@ void RTTYScreen::_pollRx() {
     if (!_radio->fskAvailable()) return;
     RxPacket pkt;
     if (_radio->fskRead(pkt) && pkt.valid && pkt.len > 0) {
+        if (pkt.len >= sizeof(pkt.data)) pkt.len = sizeof(pkt.data) - 1;
         pkt.data[pkt.len] = '\0';
         // Basic RTTY decode: raw bytes to ASCII
         for (size_t i = 0; i < pkt.len; i++) {

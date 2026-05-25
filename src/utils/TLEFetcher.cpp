@@ -51,6 +51,7 @@ void TLEFetcher::disconnectWiFi() {
 const char* TLEFetcher::ipAddress() const {
     static char buf[20];
     strncpy(buf, WiFi.localIP().toString().c_str(), sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
     return buf;
 }
 
@@ -110,9 +111,11 @@ int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
 
                 if (lineBuf[0] == '1' && lineBuf[1] == ' ' && strlen(lineBuf) >= 69) {
                     strncpy(line1, lineBuf, sizeof(line1) - 1);
+                    line1[sizeof(line1) - 1] = '\0';
                     lineState = 2;
                 } else if (lineBuf[0] == '2' && lineBuf[1] == ' ' && strlen(lineBuf) >= 69) {
                     strncpy(line2, lineBuf, sizeof(line2) - 1);
+                    line2[sizeof(line2) - 1] = '\0';
                     // We have a complete TLE set
                     TLEEntry entry;
                     if (parseTLE(line0, line1, line2, entry)) {
@@ -129,6 +132,7 @@ int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
                 } else {
                     // Name line
                     strncpy(line0, lineBuf, sizeof(line0) - 1);
+                    line0[sizeof(line0) - 1] = '\0';
                     lineState = 1;
                 }
             } else {
@@ -168,6 +172,9 @@ bool TLEFetcher::parseTLE(const char* name, const char* l1,
     strncpy(out.name, name ? name : "UNKNOWN", sizeof(out.name) - 1);
     strncpy(out.line1, l1, sizeof(out.line1) - 1);
     strncpy(out.line2, l2, sizeof(out.line2) - 1);
+    out.name[sizeof(out.name) - 1] = '\0';
+    out.line1[sizeof(out.line1) - 1] = '\0';
+    out.line2[sizeof(out.line2) - 1] = '\0';
 
     // ---- Line 1 parsing ----
     // NORAD catalog number: cols 3-7
@@ -178,11 +185,10 @@ bool TLEFetcher::parseTLE(const char* name, const char* l1,
     // Epoch: cols 19-32  (YY + DDD.dddddddd)
     char epochStr[15];
     strncpy(epochStr, l1 + 18, 14); epochStr[14] = '\0';
-    out.epochYear = atof(epochStr);
-    // Split year + day
-    double ey = floor(out.epochYear / 1000.0);
-    out.epochYear = ey + 2000.0;   // 2-digit year
-    out.epochDay  = out.epochYear - ey * 1000.0;  // day of year
+    double epochRaw = atof(epochStr);       // YYDDD.dddddddd
+    int yy = (int)(epochRaw / 1000.0);
+    out.epochDay = epochRaw - (yy * 1000.0);
+    out.epochYear = (yy >= 57) ? (1900 + yy) : (2000 + yy);
 
     // BSTAR drag: cols 54-61 (decimal point implied: +12345-3 = 0.12345e-3)
     {
@@ -387,6 +393,7 @@ bool TLEFetcher::loadFromNVS() {
 
 // ================================================================
 const TLEEntry* TLEFetcher::findByName(const char* name) const {
+    if (!name || name[0] == '\0') return nullptr;
     for (int i = 0; i < _count; i++) {
         if (strncasecmp(_entries[i].name, name, strlen(name)) == 0)
             return &_entries[i];

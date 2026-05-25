@@ -5,6 +5,7 @@
 #include "../ui/UIManager.h"
 #include "../utils/Storage.h"
 #include <Arduino.h>
+#include <cstring>
 
 MeshScreen::MeshScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
@@ -47,7 +48,7 @@ void MeshScreen::update() {
 // ================================================================
 void MeshScreen::_sendBeacon() {
     // Packet: TYPE | TTL | SRC(4) | DST(4)=BCAST | SEQ(2) | NAME
-    uint8_t pkt[32];
+    uint8_t pkt[80];
     pkt[0] = (uint8_t)MeshPktType::BEACON;
     pkt[1] = MESH_MAX_HOPS;
     pkt[2] = (_myNodeId >> 24) & 0xFF;
@@ -61,17 +62,23 @@ void MeshScreen::_sendBeacon() {
 
     // GPS payload if available
     size_t nameLen = strlen(_myName);
+    if (nameLen > sizeof(_myName) - 1) nameLen = sizeof(_myName) - 1;
+    if (nameLen > sizeof(pkt) - 12) nameLen = sizeof(pkt) - 12;
     memcpy(pkt + 12, _myName, nameLen);
     size_t pktLen = 12 + nameLen;
 
     if (_gps && _gps->hasFix()) {
-        pkt[pktLen++] = '|';
+        if (pktLen < sizeof(pkt)) pkt[pktLen++] = '|';
         char gpsBuf[20];
         snprintf(gpsBuf, sizeof(gpsBuf), "%.4f,%.4f",
                  _gps->lat(), _gps->lon());
         size_t gl = strlen(gpsBuf);
-        memcpy(pkt + pktLen, gpsBuf, gl);
-        pktLen += gl;
+        size_t room = (pktLen < sizeof(pkt)) ? (sizeof(pkt) - pktLen) : 0;
+        if (gl > room) gl = room;
+        if (gl > 0) {
+            memcpy(pkt + pktLen, gpsBuf, gl);
+            pktLen += gl;
+        }
     }
 
     _radio->loraTx(pkt, pktLen);
@@ -95,13 +102,17 @@ void MeshScreen::_sendMessage(const char* text) {
     _seqNum++;
 
     size_t nameLen = strlen(_myName);
+    if (nameLen > sizeof(_myName) - 1) nameLen = sizeof(_myName) - 1;
     size_t textLen = strlen(text);
+    size_t maxPayload = sizeof(pkt) - 13;
+    if (nameLen > maxPayload) nameLen = maxPayload;
+    if (textLen > (maxPayload - nameLen)) textLen = maxPayload - nameLen;
     memcpy(pkt + 12, _myName, nameLen);
     pkt[12 + nameLen] = ':';
     memcpy(pkt + 13 + nameLen, text, textLen);
     size_t pktLen = 13 + nameLen + textLen;
 
-    _radio->loraTx(pkt, min(pktLen, (size_t)80));
+    _radio->loraTx(pkt, pktLen);
     _radio->loraStartRx();
 
     // Add to local chat
@@ -109,6 +120,18 @@ void MeshScreen::_sendMessage(const char* text) {
         MeshMsg& m = _msgs[_msgCount++];
         strncpy(m.from, _myName, sizeof(m.from) - 1);
         strncpy(m.text, text, sizeof(m.text) - 1);
+        m.from[sizeof(m.from) - 1] = '\0';
+        m.text[sizeof(m.text) - 1] = '\0';
+        m.ts   = millis();
+        m.hops = 0;
+        m.acked= false;
+    } else {
+        memmove(_msgs, _msgs + 1, sizeof(MeshMsg) * (MAX_MSGS - 1));
+        MeshMsg& m = _msgs[MAX_MSGS - 1];
+        strncpy(m.from, _myName, sizeof(m.from) - 1);
+        strncpy(m.text, text, sizeof(m.text) - 1);
+        m.from[sizeof(m.from) - 1] = '\0';
+        m.text[sizeof(m.text) - 1] = '\0';
         m.ts   = millis();
         m.hops = 0;
         m.acked= false;
@@ -126,10 +149,12 @@ void MeshScreen::_pollRx() {
     // Re-broadcast with decremented TTL
     if (pkt.len > 1 && pkt.data[1] > 1) {
         uint8_t fwd[256];
-        memcpy(fwd, pkt.data, pkt.len);
+        size_t fwdLen = pkt.len;
+        if (fwdLen > sizeof(fwd)) fwdLen = sizeof(fwd);
+        memcpy(fwd, pkt.data, fwdLen);
         fwd[1]--;   // decrement TTL
         delay(random(10, 50));   // random backoff
-        _radio->loraTx(fwd, pkt.len);
+        _radio->loraTx(fwd, fwdLen);
         _radio->loraStartRx();
     }
     _dirty = true;
@@ -163,7 +188,7 @@ bool MeshScreen::_parsePkt(const uint8_t* data, size_t len) {
         for (int i = 0; i < _nodeCount; i++) {
             if (_nodes[i].nodeId == src) {
                 _nodes[i].lastSeenMs = millis();
-                _nodes[i].hops       = MESH_MAX_HOPS - ttl;
+                _nodes[i].hops       = (ttl <= MESH_MAX_HOPS) ? (MESH_MAX_HOPS - ttl) : 0;
                 found = true;
                 break;
             }
@@ -172,14 +197,24 @@ bool MeshScreen::_parsePkt(const uint8_t* data, size_t len) {
             MeshNode& n = _nodes[_nodeCount++];
             n.nodeId     = src;
             strncpy(n.name, nameStr, sizeof(n.name) - 1);
+            n.name[sizeof(n.name) - 1] = '\0';
             n.lastSeenMs = millis();
-            n.hops       = MESH_MAX_HOPS - ttl;
+            n.hops       = (ttl <= MESH_MAX_HOPS) ? (MESH_MAX_HOPS - ttl) : 0;
         }
 
         // For MSG type, extract text
-        if (type == MeshPktType::MSG && _msgCount < MAX_MSGS) {
-            MeshMsg& m = _msgs[_msgCount++];
+        if (type == MeshPktType::MSG) {
+            MeshMsg* msgSlot = nullptr;
+            if (_msgCount < MAX_MSGS) {
+                msgSlot = &_msgs[_msgCount++];
+            } else {
+                memmove(_msgs, _msgs + 1, sizeof(MeshMsg) * (MAX_MSGS - 1));
+                msgSlot = &_msgs[MAX_MSGS - 1];
+            }
+
+            MeshMsg& m = *msgSlot;
             strncpy(m.from, nameStr, sizeof(m.from) - 1);
+            m.from[sizeof(m.from) - 1] = '\0';
             // Text after "name:"
             const char* colonPos = (const char*)memchr(
                 data + 12, ':', len - 12);
@@ -189,9 +224,11 @@ bool MeshScreen::_parsePkt(const uint8_t* data, size_t len) {
                 if (textLen >= sizeof(m.text)) textLen = sizeof(m.text) - 1;
                 memcpy(m.text, data + textOff, textLen);
                 m.text[textLen] = '\0';
+            } else {
+                m.text[0] = '\0';
             }
             m.ts   = millis();
-            m.hops = MESH_MAX_HOPS - ttl;
+            m.hops = (ttl <= MESH_MAX_HOPS) ? (MESH_MAX_HOPS - ttl) : 0;
             m.acked= false;
         }
     }

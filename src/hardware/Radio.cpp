@@ -94,6 +94,7 @@ bool Radio::loraRead(RxPacket& pkt) {
         return false;
     }
     pkt.len       = _radio.getPacketLength();
+    if (pkt.len > sizeof(pkt.data)) pkt.len = sizeof(pkt.data);
     pkt.rssi      = _radio.getRSSI();
     pkt.snr       = _radio.getSNR();
     pkt.freqErr   = _radio.getFrequencyError();
@@ -112,7 +113,7 @@ bool Radio::fskBegin(const FSKCfg& cfg) {
     _deleteClients();
     _lastState = _radio.beginFSK(cfg.freq, cfg.bitRate, cfg.freqDev,
                                   cfg.rxBW, cfg.power,
-                                  cfg.preamble, cfg.ook);
+                                  cfg.preamble, LORA_TCXO_VOLTAGE, false);
     if (_lastState != RADIOLIB_ERR_NONE) return false;
     _radio.setDio2AsRfSwitch(true);
     _mode = RadioMode::IDLE;
@@ -142,6 +143,7 @@ bool Radio::fskRead(RxPacket& pkt) {
     _lastState = _radio.readData(pkt.data, pkt.len);
     if (_lastState != RADIOLIB_ERR_NONE) { pkt.valid = false; return false; }
     pkt.len       = _radio.getPacketLength();
+    if (pkt.len > sizeof(pkt.data)) pkt.len = sizeof(pkt.data);
     pkt.rssi      = _radio.getRSSI();
     pkt.snr       = 0;
     pkt.timestamp = millis();
@@ -156,7 +158,7 @@ bool Radio::fskRead(RxPacket& pkt) {
 bool Radio::ookBegin(float freqMHz, float bitrateKbps, float rxBW) {
     _deleteClients();
     _lastState = _radio.beginFSK(freqMHz, bitrateKbps, 0.0f, rxBW,
-                                  0, 16, true);   // ook=true
+                                  0, 16, LORA_TCXO_VOLTAGE, false);
     if (_lastState != RADIOLIB_ERR_NONE) return false;
     _radio.setDio2AsRfSwitch(true);
     _mode = RadioMode::IDLE;
@@ -250,17 +252,34 @@ bool Radio::wsprTransmit(const char* callsign, const char* grid, int8_t powerDbm
     return (sent == WSPREncoder::NUM_SYMBOLS);
 }
 
-bool Radio::initMorse(float freq, int8_t power) {
+bool Radio::initMorse(float freq, int8_t power, uint8_t speedWpm) {
     _deleteClients();
-    _radio.setFrequency(freq);
-    _radio.setOutputPower(power);
-    _morse = new MorseClient(&_radio);
-    _lastState = _morse->begin(freq, true);  // true = use carrier
+
+    // Morse in RadioLib uses startDirect(), which requires FSK packet type.
+    // Reconfigure PHY to FSK first to avoid WRONG_MODEM failures.
+    _radio.standby();
+    _lastState = _radio.beginFSK(freq, FSK_DEFAULT_BITRATE, 5.0f,
+                                 FSK_DEFAULT_RXBW, power,
+                                 FSK_DEFAULT_PREAMBLE, LORA_TCXO_VOLTAGE, false);
     if (_lastState != RADIOLIB_ERR_NONE) {
+        Serial.printf("[CW] beginFSK failed: %d (%s)\n",
+                      _lastState, stateStr(_lastState));
+        return false;
+    }
+    _radio.setDio2AsRfSwitch(true);
+
+    _morse = new MorseClient(&_radio);
+    if (speedWpm < 5) speedWpm = 5;
+    _lastState = _morse->begin(freq, speedWpm);
+    if (_lastState != RADIOLIB_ERR_NONE) {
+        Serial.printf("[CW] Morse begin failed: %d (%s)\n",
+                      _lastState, stateStr(_lastState));
         delete _morse; _morse = nullptr;
         return false;
     }
     _mode = RadioMode::CW_TX;
+    Serial.printf("[CW] Morse init OK @%.3f MHz, %u WPM, %d dBm\n",
+                  (double)freq, (unsigned)speedWpm, (int)power);
     return true;
 }
 
@@ -283,6 +302,15 @@ const char* Radio::stateStr(int16_t s) {
         case RADIOLIB_ERR_INVALID_BANDWIDTH:return "Invalid BW";
         case RADIOLIB_ERR_INVALID_SPREADING_FACTOR: return "Invalid SF";
         case RADIOLIB_ERR_INVALID_CODING_RATE: return "Invalid CR";
+        case RADIOLIB_ERR_WRONG_MODEM:      return "Wrong modem";
+        case RADIOLIB_ERR_INVALID_BIT_RATE: return "Invalid bit rate";
+        case RADIOLIB_ERR_INVALID_FREQUENCY_DEVIATION: return "Invalid frequency deviation";
+        case RADIOLIB_ERR_INVALID_RX_BANDWIDTH: return "Invalid RX bandwidth";
+        case RADIOLIB_ERR_INVALID_TCXO_VOLTAGE: return "Invalid TCXO voltage";
+        case RADIOLIB_ERR_INVALID_MODULATION_PARAMETERS: return "Invalid modulation params";
+        case RADIOLIB_ERR_SPI_CMD_TIMEOUT:  return "SPI cmd timeout";
+        case RADIOLIB_ERR_SPI_CMD_INVALID:  return "SPI cmd invalid";
+        case RADIOLIB_ERR_SPI_CMD_FAILED:   return "SPI cmd failed";
         default:
             static char buf[16];
             snprintf(buf, sizeof(buf), "Err %d", s);

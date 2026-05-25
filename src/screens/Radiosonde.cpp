@@ -45,10 +45,12 @@ void Radiosonde::update() {
         _dirty = false;
     }
 
-    static uint32_t lastRefresh = 0;
-    if (millis() - lastRefresh > 1000) {
-        lastRefresh = millis();
-        _dirty = true;
+    // Periodic partial refresh for status and age-like fields.
+    static uint32_t lastLiveRefresh = 0;
+    if (millis() - lastLiveRefresh > 1000) {
+        lastLiveRefresh = millis();
+        _drawStatusLine();
+        _drawSondeData();
     }
 }
 
@@ -57,7 +59,7 @@ void Radiosonde::_doScan() {
     _curFreq = _scanFreqs[_scanIdx];
     _radio->setFrequency(_curFreq);
     _radio->fskStartRx();
-    _dirty = true;
+    if (!_dirty) _drawStatusLine();
 }
 
 void Radiosonde::_tryDecode(const RxPacket& pkt) {
@@ -81,7 +83,11 @@ void Radiosonde::_tryDecode(const RxPacket& pkt) {
                  frame.serial, frame.altKm,
                  frame.pressHpa, frame.tempC);
         _log.addLine(line);
-        _dirty = true;
+        if (!_dirty) {
+            _drawStatusLine();
+            _drawSondeData();
+            _log.draw(&_disp->gfx(), 0, 148, 320, 66, COL_SONDE);
+        }
     }
 }
 
@@ -90,6 +96,20 @@ void Radiosonde::_drawAll() {
     auto& gfx = _disp->gfx();
     gfx.fillRect(0, STATUS_BAR_H, 320, CONTENT_H + HINT_BAR_H, COL_BG);
     drawHeader(&gfx, "Radiosonde RX", COL_SONDE);
+
+    _drawStatusLine();
+
+    _drawSondeData();
+
+    // Log area
+    _log.draw(&gfx, 0, 148, 320, 66, COL_SONDE);
+
+    drawHints(&gfx, "HOLD=Back", "S=Scan/Lock", "F=Freq");
+}
+
+void Radiosonde::_drawStatusLine() {
+    auto& gfx = _disp->gfx();
+    gfx.fillRect(0, 47, 320, 20, COL_BG);
 
     // Frequency + scan status
     char freqLine[40];
@@ -103,22 +123,14 @@ void Radiosonde::_drawAll() {
     gfx.setCursor(4, 47);
     gfx.print(freqLine);
 
-    // Signal bar
     drawRSSIBar(&gfx, 4, 57, 200, 8, _signalRSSI);
-
     gfx.drawFastHLine(0, 67, 320, COL_DIVIDER);
-
-    _drawSondeData();
-
-    // Log area
-    _log.draw(&gfx, 0, 148, 320, 66, COL_SONDE);
-
-    drawHints(&gfx, "HOLD=Back", "S=Scan/Lock", "F=Freq");
 }
 
 void Radiosonde::_drawSondeData() {
     auto& gfx = _disp->gfx();
     constexpr int Y = 68;
+    gfx.fillRect(0, Y, 320, 80, COL_BG);
 
     if (!_hasFrame) {
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);

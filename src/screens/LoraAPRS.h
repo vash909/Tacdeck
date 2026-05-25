@@ -41,6 +41,7 @@ private:
     int      _tabSel    = 0;   // 0=RX log, 1=TX/Config
 
     void _drawAll();
+    void _drawStatusRow();
     void _drawRXLog();
     void _drawTXPanel();
     void _txBeacon();

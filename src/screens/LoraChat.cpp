@@ -127,6 +127,7 @@ void LoraChat::_addMsg(const char* text, bool mine, int8_t rssi) {
     if (_msgCount < MAX_MSGS) {
         ChatMsg& m = _msgs[_msgCount++];
         strncpy(m.text, text, sizeof(m.text) - 1);
+        m.text[sizeof(m.text) - 1] = '\0';
         m.mine = mine;
         m.rssi = rssi;
         m.ts   = millis();
@@ -134,6 +135,7 @@ void LoraChat::_addMsg(const char* text, bool mine, int8_t rssi) {
         memmove(_msgs, _msgs + 1, sizeof(ChatMsg) * (MAX_MSGS - 1));
         ChatMsg& m = _msgs[MAX_MSGS - 1];
         strncpy(m.text, text, sizeof(m.text) - 1);
+        m.text[sizeof(m.text) - 1] = '\0';
         m.mine = mine;
         m.rssi = rssi;
         m.ts   = millis();
@@ -164,6 +166,7 @@ void LoraChat::_pollRx() {
 
     RxPacket pkt;
     if (_radio->loraRead(pkt) && pkt.valid) {
+        if (pkt.len >= sizeof(pkt.data)) pkt.len = sizeof(pkt.data) - 1;
         pkt.data[pkt.len] = '\0';
         // Filter non-printable
         for (size_t i = 0; i < pkt.len; i++) {

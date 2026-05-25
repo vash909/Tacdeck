@@ -93,7 +93,9 @@ public:
     bool initWSPR(float freq, float ppm = 0.0f);
     // Encode and transmit one full WSPR Type-1 message (~110 s, blocking)
     bool wsprTransmit(const char* callsign, const char* grid, int8_t powerDbm);
-    bool initMorse(float freq, int8_t power = CW_DEFAULT_POWER);
+    bool initMorse(float freq,
+                   int8_t power = CW_DEFAULT_POWER,
+                   uint8_t speedWpm = CW_DEFAULT_SPEED);
 
     // ----- State -----
     RadioMode mode()  const { return _mode; }

@@ -8,6 +8,10 @@
 FreqScanScreen::FreqScanScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
+static inline int _freqScanMaxOffset(int numChannels) {
+    return (numChannels > 14) ? (numChannels - 14) : 0;
+}
+
 void FreqScanScreen::onEnter() {
     _buildChannelList();
 
@@ -27,8 +31,11 @@ void FreqScanScreen::onExit() {
 
 void FreqScanScreen::_buildChannelList() {
     _numChannels = 0;
+    float stepMHz = _stepKHz / 1000.0f;
+    if (stepMHz <= 0.f) stepMHz = 0.0125f;
+
     for (float f = _startFreq; f <= _endFreq && _numChannels < MAX_CHANNELS;
-         f += _stepKHz / 1000.0f) {
+         f += stepMHz) {
         _channels[_numChannels].freqMHz     = f;
         _channels[_numChannels].rssi        = -120.f;
         _channels[_numChannels].lastActiveMs= 0;
@@ -36,6 +43,7 @@ void FreqScanScreen::_buildChannelList() {
         _numChannels++;
     }
     _curIdx = 0;
+    _viewOffset = 0;
 }
 
 void FreqScanScreen::update() {
@@ -56,6 +64,7 @@ void FreqScanScreen::update() {
 }
 
 void FreqScanScreen::_scanStep() {
+    if (_numChannels <= 0) return;
     if (millis() - _lastStepMs < DWELL_MS) return;
     _lastStepMs = millis();
 
@@ -195,7 +204,7 @@ void FreqScanScreen::onKey(char key) {
     if (key == '+') { _squelch += 5; _dirty = true; }
     if (key == '-') { _squelch -= 5; _dirty = true; }
     if (key == KEY_UP   && _viewOffset > 0) _viewOffset--;
-    if (key == KEY_DOWN && _viewOffset < _numChannels - 14) _viewOffset++;
+    if (key == KEY_DOWN && _viewOffset < _freqScanMaxOffset(_numChannels)) _viewOffset++;
     if (key == 'r' || key == 'R') {
         _buildChannelList();
         _dirty = true;
@@ -203,10 +212,12 @@ void FreqScanScreen::onKey(char key) {
 }
 
 void FreqScanScreen::onTrackball(int dx, int dy, bool click) {
+    (void)dx;
     if (dy != 0) {
         _viewOffset += dy;
         if (_viewOffset < 0) _viewOffset = 0;
-        if (_viewOffset > _numChannels - 14) _viewOffset = _numChannels - 14;
+        int maxOff = _freqScanMaxOffset(_numChannels);
+        if (_viewOffset > maxOff) _viewOffset = maxOff;
     }
     if (click) { _scanning = !_scanning; _dirty = true; }
 }

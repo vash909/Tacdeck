@@ -17,26 +17,29 @@ void GPSScreen::onEnter() {
 }
 
 void GPSScreen::update() {
-    if (!_dirty) {
-        if (_tabSel == 0) {
-            if (_gps && _gps->hasFix()) {
-                const GpsData& d = _gps->data();
-                if (d.second != _lastSecondDrawn) _dirty = true;
-            } else {
-                // While waiting for fix, refresh slower to reduce flicker.
-                if (millis() - _lastGridRefreshMs > 1000) _dirty = true;
-            }
-        } else {
-            // Grid/APRS tab updates can be slower and still feel responsive.
-            if (millis() - _lastGridRefreshMs > 1000) _dirty = true;
-        }
-    }
-
     if (_dirty) {
         _drawAll();
         if (_gps) _lastSecondDrawn = _gps->data().second;
         _lastGridRefreshMs = millis();
         _dirty = false;
+        return;
+    }
+
+    // Partial updates only: avoid full-screen redraw blink.
+    if (_tabSel == 0) {
+        if (_gps && _gps->hasFix()) {
+            const GpsData& d = _gps->data();
+            if (d.second != _lastSecondDrawn) {
+                _drawDataTab();
+                _lastSecondDrawn = d.second;
+            }
+        } else if (millis() - _lastGridRefreshMs > 1000) {
+            _drawDataTab();
+            _lastGridRefreshMs = millis();
+        }
+    } else if (millis() - _lastGridRefreshMs > 1000) {
+        _drawGridTab();
+        _lastGridRefreshMs = millis();
     }
 }
 
@@ -57,6 +60,7 @@ void GPSScreen::_drawAll() {
 
 void GPSScreen::_drawDataTab() {
     auto& gfx = _disp->gfx();
+    gfx.fillRect(0, 60, 320, 156, COL_BG);
     int y = 60;
 
     if (!_gps) {
@@ -146,6 +150,7 @@ void GPSScreen::_drawDataTab() {
 
 void GPSScreen::_drawGridTab() {
     auto& gfx = _disp->gfx();
+    gfx.fillRect(0, 60, 320, 156, COL_BG);
     int y = 62;
 
     if (!_gps || !_gps->hasFix()) {

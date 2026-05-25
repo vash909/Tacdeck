@@ -13,7 +13,7 @@ class Display; class GPS; class UIManager;
 struct POCSAGMsg {
     uint32_t capcode;
     char     text[40];
-    uint8_t  baud;
+    uint16_t baud;
     uint32_t ts;
 };
 
@@ -51,6 +51,7 @@ private:
     int      _bitCount = 0;
 
     void _drawAll();
+    void _drawStatusLine();
     void _drawMessages();
     void _pollRx();
     bool _decodePOCSAG(const uint8_t* data, size_t len);

@@ -36,7 +36,8 @@ void StatusBar::begin(Display* disp, GPS* gps, Radio* radio) {
 }
 
 void StatusBar::setModeName(const char* name, uint16_t color) {
-    strncpy(_modeName, name, sizeof(_modeName) - 1);
+    strncpy(_modeName, name ? name : "---", sizeof(_modeName) - 1);
+    _modeName[sizeof(_modeName) - 1] = '\0';
     _modeColor = color;
     _dirty     = true;
 }

@@ -222,6 +222,11 @@ void SatelliteScreen::_drawList() {
     constexpr int H  = 28;
     constexpr int ROWS = 6;
 
+    int maxOffset = _tle.count() - ROWS;
+    if (maxOffset < 0) maxOffset = 0;
+    if (_viewOffset > maxOffset) _viewOffset = maxOffset;
+    if (_viewOffset < 0) _viewOffset = 0;
+
     for (int i = 0; i < ROWS; i++) {
         int idx = i + _viewOffset;
         if (idx >= _tle.count()) break;
@@ -423,7 +428,13 @@ void SatelliteScreen::onKey(char key) {
         int prev = _selIdx;
         if (key == KEY_UP   && _selIdx > 0)                 _selIdx--;
         if (key == KEY_DOWN && _selIdx < _tle.count() - 1)  _selIdx++;
-        if (_selIdx != prev) _dirty = true;
+        if (_selIdx != prev) {
+            if (_view == VIEW_LIST && _selIdx < _viewOffset)
+                _viewOffset = _selIdx;
+            if (_view == VIEW_LIST && _selIdx >= _viewOffset + 6)
+                _viewOffset = _selIdx - 5;
+            _dirty = true;
+        }
         return;
     }
 

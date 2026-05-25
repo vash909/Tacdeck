@@ -98,6 +98,7 @@ struct TextLog {
         } else {
             memmove(lines[0], lines[1], sizeof(lines) - LINE_LEN);
             strncpy(lines[MAX_LINES - 1], text, LINE_LEN - 1);
+            lines[MAX_LINES - 1][LINE_LEN - 1] = '\0';
         }
     }
 
@@ -177,4 +178,3 @@ inline void drawProgressBar(lgfx::LovyanGFX* gfx,
     gfx->fillRect(x + 1, y + 1, filled, h - 2, col);
     gfx->fillRect(x + 1 + filled, y + 1, w - 2 - filled, h - 2, COL_BG);
 }
-

@@ -23,7 +23,7 @@ struct TLEEntry {
     double bstarDrag;       // drag coefficient
 
     // Epoch (Julian date)
-    double epochYear;       // 2-digit year
+    double epochYear;       // full year (e.g. 2026)
     double epochDay;        // day of year + fractional
 
     // Derived

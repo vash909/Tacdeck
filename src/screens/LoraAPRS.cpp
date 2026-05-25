@@ -48,11 +48,12 @@ void LoraAPRS::update() {
         _dirty = false;
     }
 
-    // Update countdown timer every second
+    // Update countdown/live info every second without full redraw.
     static uint32_t lastSec = 0;
     if (millis() - lastSec > 1000) {
         lastSec = millis();
-        _dirty = true;
+        _drawStatusRow();
+        if (_tabSel == 1) _drawTXPanel();
     }
 }
 
@@ -66,9 +67,22 @@ void LoraAPRS::_drawAll() {
     drawButton(&gfx,   0, 44, 100, 14, "RX Log",  _tabSel==0, COL_APRS);
     drawButton(&gfx, 102, 44, 100, 14, "TX/Config",_tabSel==1, COL_APRS);
 
-    // Status row
+    _drawStatusRow();
+
+    if (_tabSel == 0) _drawRXLog();
+    else              _drawTXPanel();
+
+    drawHints(&gfx, "HOLD=Back", "T=TX Now", "TAB=Switch");
+}
+
+void LoraAPRS::_drawStatusRow() {
+    auto& gfx = _disp->gfx();
+    gfx.fillRect(0, 61, 320, 10, COL_BG);
+
     char statLine[48];
-    uint32_t nextTx = (_txIntervalSec * 1000UL - (millis() - _lastTxMs)) / 1000;
+    uint32_t elapsed = millis() - _lastTxMs;
+    uint32_t nextTx = (elapsed >= _txIntervalSec * 1000UL) ? 0 :
+                      (_txIntervalSec * 1000UL - elapsed) / 1000;
     bool hasFix = _gps && _gps->hasFix();
     snprintf(statLine, sizeof(statLine), "%s  %.3fMHz  TX in %lus",
              _callsign, (double)APRS_LORA_FREQ, (unsigned long)nextTx);
@@ -77,11 +91,6 @@ void LoraAPRS::_drawAll() {
     gfx.setCursor(2, 61);
     gfx.print(statLine);
     gfx.drawFastHLine(0, 71, 320, COL_DIVIDER);
-
-    if (_tabSel == 0) _drawRXLog();
-    else              _drawTXPanel();
-
-    drawHints(&gfx, "HOLD=Back", "T=TX Now", "TAB=Switch");
 }
 
 void LoraAPRS::_drawRXLog() {
@@ -91,6 +100,7 @@ void LoraAPRS::_drawRXLog() {
 void LoraAPRS::_drawTXPanel() {
     auto& gfx = _disp->gfx();
     int y = 72;
+    gfx.fillRect(0, y, 320, 140, COL_BG);
 
     drawKV(&gfx, 4, y,     "Callsign : ", _callsign);
     drawKV(&gfx, 4, y+12,  "Comment  : ", _comment);
@@ -154,7 +164,11 @@ void LoraAPRS::_pollRx() {
     if (_radio->loraRead(pkt) && pkt.valid) {
         _rxCount++;
         _decodeAndLog(pkt);
-        _dirty = true;
+        if (!_dirty) {
+            _drawStatusRow();
+            if (_tabSel == 0) _drawRXLog();
+            else              _drawTXPanel();
+        }
     }
 }
 

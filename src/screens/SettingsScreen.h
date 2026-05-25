@@ -32,9 +32,10 @@ private:
     GPS*       _gps;
     UIManager* _ui;
 
-    static constexpr int NUM_ITEMS = 12;
+    static constexpr int NUM_ITEMS = 13;
     SettingItem _items[NUM_ITEMS];
     int         _selIdx   = 0;
+    int         _viewOffset = 0;
     InputBox    _editBox;
     bool        _editing  = false;
     bool        _saved    = false;
@@ -45,4 +46,5 @@ private:
     void _drawAll();
     void _startEdit(int idx);
     void _commitEdit(int idx);
+    void _ensureSelectionVisible();
 };

@@ -48,6 +48,7 @@ private:
     float    _listenRSSI = -120.f;
 
     void _drawAll();
+    void _drawStatusLine();
     void _drawSensorGrid();
     void _drawRawLog();
     void _pollRx();

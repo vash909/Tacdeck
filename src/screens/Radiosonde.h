@@ -49,6 +49,7 @@ private:
     TextLog     _log;
 
     void _drawAll();
+    void _drawStatusLine();
     void _drawSondeData();
     void _doScan();
     void _tryDecode(const RxPacket& pkt);

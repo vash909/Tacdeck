@@ -5,11 +5,22 @@
 #include "../ui/UIManager.h"
 #include "../utils/Storage.h"
 #include <Arduino.h>
+#include <cstdlib>
 
 CWScreen::CWScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
 void CWScreen::onEnter() {
+    char freqBuf[16];
+    Storage::getString(NVS_KEY_CW_FREQ, freqBuf, sizeof(freqBuf), "433.500");
+    char* endPtr = nullptr;
+    const float parsedFreq = strtof(freqBuf, &endPtr);
+    if (endPtr != freqBuf && parsedFreq >= 150.0f && parsedFreq <= 960.0f) {
+        _freq = parsedFreq;
+    } else {
+        _freq = CW_DEFAULT_FREQ;
+    }
+
     Storage::getString(NVS_KEY_CW_TEXT, _beaconText,
                        sizeof(_beaconText), "CQ DE TDECK K");
     _msgInput.clear();
@@ -43,8 +54,11 @@ void CWScreen::update() {
 }
 
 void CWScreen::_txMessage(const char* msg) {
-    if (!_radio->initMorse(_freq, _power)) {
-        _txLog.addLine("[ERR] Morse init failed");
+    if (!_radio->initMorse(_freq, _power, (uint8_t)_wpm)) {
+        char err[54];
+        snprintf(err, sizeof(err), "[ERR] Morse init failed: %s",
+                 Radio::stateStr(_radio->state()));
+        _txLog.addLine(err);
         _dirty = true;
         return;
     }

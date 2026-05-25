@@ -32,10 +32,13 @@ void POCSAGScreen::update() {
         _dirty = false;
     }
 
-    static uint32_t lastRefresh = 0;
-    if (millis() - lastRefresh > 1000) {
-        lastRefresh = millis();
-        _dirty = true;
+    // Periodic partial refresh (RSSI and content timestamps) without full-screen blink.
+    static uint32_t lastLiveRefresh = 0;
+    if (millis() - lastLiveRefresh > 1000) {
+        lastLiveRefresh = millis();
+        _drawStatusLine();
+        if (_showRaw) _rawLog.draw(&_disp->gfx(), 0, 83, 320, 130, COL_POCSAG);
+        else          _drawMessages();
     }
 }
 
@@ -56,7 +59,11 @@ void POCSAGScreen::_pollRx() {
     _rawLog.addLine(rawLine);
 
     _decodePOCSAG(pkt.data, pkt.len);
-    _dirty = true;
+    if (!_dirty) {
+        _drawStatusLine();
+        if (_showRaw) _rawLog.draw(&_disp->gfx(), 0, 83, 320, 130, COL_POCSAG);
+        else          _drawMessages();
+    }
 }
 
 // ---- Minimal POCSAG frame decoder ----
@@ -115,14 +122,16 @@ void POCSAGScreen::_addMsg(uint32_t capcode, const char* text) {
         POCSAGMsg& m = _msgs[_msgCount++];
         m.capcode = capcode;
         strncpy(m.text, text, sizeof(m.text) - 1);
-        m.baud = (uint8_t)(BAUDS[_baudIdx] * 1000);
+        m.text[sizeof(m.text) - 1] = '\0';
+        m.baud = (uint16_t)(BAUDS[_baudIdx] * 1000);
         m.ts   = millis();
     } else {
         memmove(_msgs, _msgs + 1, sizeof(POCSAGMsg) * (MAX_MSGS - 1));
         POCSAGMsg& m = _msgs[MAX_MSGS - 1];
         m.capcode = capcode;
         strncpy(m.text, text, sizeof(m.text) - 1);
-        m.baud = (uint8_t)(BAUDS[_baudIdx] * 1000);
+        m.text[sizeof(m.text) - 1] = '\0';
+        m.baud = (uint16_t)(BAUDS[_baudIdx] * 1000);
         m.ts   = millis();
     }
 }
@@ -133,16 +142,7 @@ void POCSAGScreen::_drawAll() {
     gfx.fillRect(0, STATUS_BAR_H, 320, CONTENT_H + HINT_BAR_H, COL_BG);
     drawHeader(&gfx, "POCSAG Receiver", COL_POCSAG);
 
-    char cfgLine[40];
-    snprintf(cfgLine, sizeof(cfgLine),
-             "%.3fMHz  %.0fbps  RSSI:%.0fdBm",
-             (double)_freq, BAUDS[_baudIdx] * 1000, (double)_listenRSSI);
-    gfx.setTextSize(FONT_TINY);
-    gfx.setTextColor(COL_TEXT_DIM, COL_BG);
-    gfx.setCursor(4, 47);
-    gfx.print(cfgLine);
-    drawRSSIBar(&gfx, 4, 57, 200, 8, _listenRSSI);
-    gfx.drawFastHLine(0, 67, 320, COL_DIVIDER);
+    _drawStatusLine();
 
     drawButton(&gfx,   0, 68, 90, 12, "Messages", !_showRaw, COL_POCSAG);
     drawButton(&gfx,  92, 68, 90, 12, "Raw",       _showRaw, COL_POCSAG);
@@ -158,10 +158,27 @@ void POCSAGScreen::_drawAll() {
     drawHints(&gfx, "HOLD=Back", "B=Baud", "R=Raw");
 }
 
+void POCSAGScreen::_drawStatusLine() {
+    auto& gfx = _disp->gfx();
+    gfx.fillRect(0, 47, 320, 20, COL_BG);
+
+    char cfgLine[40];
+    snprintf(cfgLine, sizeof(cfgLine),
+             "%.3fMHz  %.0fbps  RSSI:%.0fdBm",
+             (double)_freq, BAUDS[_baudIdx] * 1000, (double)_listenRSSI);
+    gfx.setTextSize(FONT_TINY);
+    gfx.setTextColor(COL_TEXT_DIM, COL_BG);
+    gfx.setCursor(4, 47);
+    gfx.print(cfgLine);
+    drawRSSIBar(&gfx, 4, 57, 200, 8, _listenRSSI);
+    gfx.drawFastHLine(0, 67, 320, COL_DIVIDER);
+}
+
 void POCSAGScreen::_drawMessages() {
     auto& gfx = _disp->gfx();
     constexpr int Y0 = 83;
     constexpr int H  = 16;
+    gfx.fillRect(0, Y0, 320, 130, COL_BG);
 
     if (_msgCount == 0) {
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);
