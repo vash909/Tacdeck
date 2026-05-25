@@ -1,0 +1,30 @@
+.claude/
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.piopm/
+
+# Compiled output
+*.bin
+*.elf
+*.map
+*.hex
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.suo
+*.user
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.tmp
+
+# Credentials — NEVER commit WiFi passwords!
+secrets.h
+credentials.h
