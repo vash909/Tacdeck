@@ -46,6 +46,7 @@ public:
     void onKey(char key) override;
     void onTrackball(int dx, int dy, bool click) override;
     const char* name() const override { return "Mesh Net"; }
+    bool handlesEsc() const override { return true; }
 
 private:
     Display*   _disp;

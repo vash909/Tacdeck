@@ -81,7 +81,7 @@ void LoraAPRS::_drawAll() {
     if (_tabSel == 0) _drawRXLog();
     else              _drawTXPanel();
 
-    drawHints(&gfx, "ESC=Back", "T=TX Now", "TAB=Switch");
+    drawHints(&gfx, "HOLD=Back", "T=TX Now", "TAB=Switch");
 }
 
 void LoraAPRS::_drawRXLog() {

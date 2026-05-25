@@ -229,7 +229,7 @@ void MeshScreen::_drawAll() {
     if (_tabSel == 0) _drawChat();
     else              _drawNodes();
 
-    drawHints(&gfx, "ESC=Back",
+    drawHints(&gfx, "HOLD=Back",
               "TAB=Switch",
               _typing ? "ENTER=Send" : "T=Type");
 }
@@ -333,6 +333,17 @@ uint32_t MeshScreen::_makeNodeId() {
 }
 
 void MeshScreen::onKey(char key) {
+    if (key == KEY_ESC) {
+        if (_typing) {
+            _typing = false;
+            _chatInput.clear();
+            _dirty = true;
+        } else {
+            _ui->pop();
+        }
+        return;
+    }
+
     if (key == KEY_TAB || key == '\t') {
         _tabSel = (_tabSel + 1) % 2; _dirty = true; return;
     }
@@ -346,9 +357,6 @@ void MeshScreen::onKey(char key) {
             _chatInput.clear();
             _typing = false;
             return;
-        }
-        if (key == KEY_ESC) {
-            _typing = false; _chatInput.clear(); _dirty = true; return;
         }
         _chatInput.input(key);
         _drawChat();

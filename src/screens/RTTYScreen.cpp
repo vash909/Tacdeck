@@ -58,8 +58,8 @@ void RTTYScreen::_drawAll() {
     if (_txMode) _drawTXPanel();
     else         _drawRXPanel();
 
-    const char* hint = _txMode ? "ENTER=Send  ESC=Stop TX" : "ESC=Back";
-    drawHints(&gfx, "ESC=Back", nullptr, hint);
+    const char* hint = _txMode ? "ENTER=Send  HOLD=Stop TX" : "HOLD=Back";
+    drawHints(&gfx, "HOLD=Back", nullptr, hint);
 }
 
 void RTTYScreen::_drawRXPanel() {

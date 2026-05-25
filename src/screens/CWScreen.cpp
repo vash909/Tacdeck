@@ -36,8 +36,10 @@ void CWScreen::update() {
         _dirty = false;
     }
 
-    static uint32_t lastSec = 0;
-    if (millis() - lastSec > 1000) { lastSec = millis(); _dirty = true; }
+    if ((_beaconEnabled || _txing) && (millis() - _lastLiveUpdateMs > 1000)) {
+        _lastLiveUpdateMs = millis();
+        if (!_dirty) _drawLiveStatus();
+    }
 }
 
 void CWScreen::_txMessage(const char* msg) {
@@ -98,30 +100,9 @@ void CWScreen::_drawAll() {
     drawKV(&gfx, 4, y, "Interval: ", intBuf, COL_TEXT_DIM, COL_TEXT);
     y += 12;
 
-    // Beacon status
-    if (_txing) {
-        gfx.setTextColor(COL_CW, COL_BG);
-        gfx.setTextSize(FONT_MEDIUM);
-        gfx.setCursor(60, y + 4);
-        gfx.print("TRANSMITTING...");
-        y += 30;
-    } else if (_beaconEnabled) {
-        uint32_t nextTx = _txIntervalSec - (millis() - _lastTxMs) / 1000;
-        char nBuf[24];
-        snprintf(nBuf, sizeof(nBuf), "Beacon ON  next: %lus",
-                 (unsigned long)nextTx);
-        gfx.setTextSize(FONT_TINY);
-        gfx.setTextColor(COL_GREEN, COL_BG);
-        gfx.setCursor(4, y);
-        gfx.print(nBuf);
-        y += 12;
-    } else {
-        gfx.setTextSize(FONT_TINY);
-        gfx.setTextColor(COL_TEXT_DIM, COL_BG);
-        gfx.setCursor(4, y);
-        gfx.print("Beacon OFF");
-        y += 12;
-    }
+    _drawLiveStatus();
+    if (_txing) y += 30;
+    else        y += 12;
 
     gfx.drawFastHLine(0, y, 320, COL_DIVIDER);
     y += 2;
@@ -144,7 +125,7 @@ void CWScreen::_drawAll() {
     gfx.drawFastHLine(0, y + 40, 320, COL_DIVIDER);
     _txLog.draw(&gfx, 0, y + 42, 320, 64, COL_CW);
 
-    drawHints(&gfx, "ESC=Back",
+    drawHints(&gfx, "HOLD=Back",
               _beaconEnabled ? "B=Disable" : "B=Beacon",
               "T=Type+TX");
 }
@@ -171,6 +152,38 @@ void CWScreen::_drawMorseVisual(const char* morse) {
         } else if (c == ' ') {
             x += DASH_W;   // word space
         }
+    }
+}
+
+void CWScreen::_drawLiveStatus() {
+    auto& gfx = _disp->gfx();
+    constexpr int Y = 84;
+
+    // Clear only dynamic status area (prevents full-screen flicker).
+    gfx.fillRect(0, Y, 320, 30, COL_BG);
+
+    if (_txing) {
+        gfx.setTextColor(COL_CW, COL_BG);
+        gfx.setTextSize(FONT_MEDIUM);
+        gfx.setCursor(60, Y + 4);
+        gfx.print("TRANSMITTING...");
+        return;
+    }
+
+    gfx.setTextSize(FONT_TINY);
+    if (_beaconEnabled) {
+        uint32_t elapsedSec = (millis() - _lastTxMs) / 1000;
+        uint32_t nextTx = (elapsedSec >= _txIntervalSec) ? 0 : (_txIntervalSec - elapsedSec);
+        char nBuf[28];
+        snprintf(nBuf, sizeof(nBuf), "Beacon ON  next: %lus",
+                 (unsigned long)nextTx);
+        gfx.setTextColor(COL_GREEN, COL_BG);
+        gfx.setCursor(4, Y);
+        gfx.print(nBuf);
+    } else {
+        gfx.setTextColor(COL_TEXT_DIM, COL_BG);
+        gfx.setCursor(4, Y);
+        gfx.print("Beacon OFF");
     }
 }
 
@@ -202,7 +215,7 @@ void CWScreen::onKey(char key) {
             return;
         }
         _msgInput.input(key);
-        _drawAll();
+        _dirty = true;
         return;
     }
     if (key == '+') { _wpm = min(_wpm + 2, 40); _dirty = true; }

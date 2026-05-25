@@ -10,12 +10,34 @@
 GPSScreen::GPSScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
-void GPSScreen::onEnter() { _dirty = true; }
+void GPSScreen::onEnter() {
+    _lastSecondDrawn = 255;
+    _lastGridRefreshMs = 0;
+    _dirty = true;
+}
 
 void GPSScreen::update() {
-    static uint32_t lastMs = 0;
-    if (millis() - lastMs > 500) { lastMs = millis(); _dirty = true; }
-    if (_dirty) { _drawAll(); _dirty = false; }
+    if (!_dirty) {
+        if (_tabSel == 0) {
+            if (_gps && _gps->hasFix()) {
+                const GpsData& d = _gps->data();
+                if (d.second != _lastSecondDrawn) _dirty = true;
+            } else {
+                // While waiting for fix, refresh slower to reduce flicker.
+                if (millis() - _lastGridRefreshMs > 1000) _dirty = true;
+            }
+        } else {
+            // Grid/APRS tab updates can be slower and still feel responsive.
+            if (millis() - _lastGridRefreshMs > 1000) _dirty = true;
+        }
+    }
+
+    if (_dirty) {
+        _drawAll();
+        if (_gps) _lastSecondDrawn = _gps->data().second;
+        _lastGridRefreshMs = millis();
+        _dirty = false;
+    }
 }
 
 void GPSScreen::_drawAll() {
@@ -30,7 +52,7 @@ void GPSScreen::_drawAll() {
     if (_tabSel == 0) _drawDataTab();
     else              _drawGridTab();
 
-    drawHints(&gfx, "ESC=Back", "TAB=Switch", nullptr);
+    drawHints(&gfx, "HOLD=Back", "TAB=Switch", nullptr);
 }
 
 void GPSScreen::_drawDataTab() {

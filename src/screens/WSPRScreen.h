@@ -42,8 +42,10 @@ private:
     TextLog _log;
     int     _editField = 0;   // 0=none, 1=call, 2=grid, 3=pwr
     InputBox _editBuf;
+    uint32_t _lastLiveUpdateMs = 0;
 
     void _drawAll();
+    void _drawLiveStatus();
     void _startBeacon();
     void _stopBeacon();
     bool _isEvenMinute();

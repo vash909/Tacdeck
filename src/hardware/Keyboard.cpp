@@ -6,7 +6,7 @@ void IRAM_ATTR Keyboard::isrUp()    { if (_instance) _instance->_tbDy--; }
 void IRAM_ATTR Keyboard::isrDown()  { if (_instance) _instance->_tbDy++; }
 void IRAM_ATTR Keyboard::isrLeft()  { if (_instance) _instance->_tbDx--; }
 void IRAM_ATTR Keyboard::isrRight() { if (_instance) _instance->_tbDx++; }
-void IRAM_ATTR Keyboard::isrClick() { if (_instance) _instance->_tbClick = true; }
+void IRAM_ATTR Keyboard::isrClick() {}
 
 bool Keyboard::begin() {
     _instance = this;
@@ -28,8 +28,11 @@ bool Keyboard::begin() {
     attachInterrupt(digitalPinToInterrupt(TDECK_TB_RIGHT), isrRight, FALLING);
 
     // Trackball click button (GPIO0 = BOOT, active LOW, pulled up by board)
+    // Do not use interrupt here: we need press/release timing for long-press BACK.
     pinMode(TDECK_TB_CLICK, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(TDECK_TB_CLICK), isrClick, FALLING);
+    _tbPressed = (digitalRead(TDECK_TB_CLICK) == LOW);
+    _tbLongPressSent = false;
+    _tbPressStartMs = 0;
 
     _initialized = true;
     Serial.println("[KB] Keyboard + trackball ready");
@@ -37,26 +40,48 @@ bool Keyboard::begin() {
 }
 
 void Keyboard::update() {
-    // Poll keyboard INT pin
-    if (digitalRead(TDECK_KB_INT) == LOW) {
-        char k = _readI2CKey();
-        if (k != KEY_NONE) {
-            // Handle modifiers
-            if (k == 0x01) { _altHeld   = !_altHeld;   return; }
-            if (k == 0x02) { _shiftHeld = !_shiftHeld; return; }
+    if (!_initialized) return;
+    const uint32_t now = millis();
 
-            // Trackball click comes as ENTER from keyboard
-            // Map ENTER to click when no text input context
-            _lastKey  = k;
-            _keyAvail = true;
+    // Read keyboard even if INT is unreliable; INT still fast-paths new keys.
+    if (digitalRead(TDECK_KB_INT) == LOW || (now - _lastKbPollMs) >= KB_POLL_MS) {
+        _lastKbPollMs = now;
+
+        // Drain a few bytes per loop; keyboard may queue multiple keypresses.
+        for (int i = 0; i < 4; i++) {
+            char k = _readI2CKey();
+            if (k == KEY_NONE) break;
+
+            // Handle modifiers
+            if (k == 0x01) { _altHeld   = !_altHeld;   continue; }
+            if (k == 0x02) { _shiftHeld = !_shiftHeld; continue; }
+
+            _enqueueKey(k);
         }
+    }
+
+    // Trackball button: short press = click, long press = global back (ESC).
+    bool pressed = (digitalRead(TDECK_TB_CLICK) == LOW);
+    if (pressed && !_tbPressed) {
+        _tbPressed = true;
+        _tbLongPressSent = false;
+        _tbPressStartMs = now;
+    } else if (!pressed && _tbPressed) {
+        if (!_tbLongPressSent) _tbClick = true;
+        _tbPressed = false;
+        _tbLongPressSent = false;
+        _tbPressStartMs = 0;
+    } else if (pressed && !_tbLongPressSent &&
+               _tbPressStartMs > 0 &&
+               (now - _tbPressStartMs) >= TB_LONG_PRESS_MS) {
+        _tbLongPressSent = true;
+        _tbClick = false;         // prevent accidental short-click action
+        _enqueueKey(KEY_ESC);     // global back
     }
 }
 
 char Keyboard::getKey() {
-    if (!_keyAvail) return KEY_NONE;
-    _keyAvail = false;
-    return _lastKey;
+    return _dequeueKey();
 }
 
 bool Keyboard::getTrackball(int& dx, int& dy, bool& click) {
@@ -101,8 +126,10 @@ char Keyboard::_readI2CKey() {
         // Special keys:
         switch (raw) {
             case 0x08: return KEY_BACKSPACE;
+            case 0x09: return KEY_TAB;
             case 0x0A: return KEY_ENTER;   // '\n' — some keyboard firmware variants
             case 0x0D: return KEY_ENTER;   // '\r' — standard
+            case 0x7F: return KEY_BACKSPACE; // DEL from some firmware variants
             case 0x11: return KEY_UP;
             case 0x12: return KEY_DOWN;
             case 0x13: return KEY_LEFT;
@@ -115,4 +142,22 @@ char Keyboard::_readI2CKey() {
         }
     }
     return KEY_NONE;
+}
+
+bool Keyboard::_enqueueKey(char key) {
+    uint8_t next = (uint8_t)((_qHead + 1) % KEY_Q_CAP);
+    if (next == _qTail) {
+        // Queue full: drop oldest key to keep latest input responsive.
+        _qTail = (uint8_t)((_qTail + 1) % KEY_Q_CAP);
+    }
+    _keyQueue[_qHead] = key;
+    _qHead = next;
+    return true;
+}
+
+char Keyboard::_dequeueKey() {
+    if (_qHead == _qTail) return KEY_NONE;
+    char key = _keyQueue[_qTail];
+    _qTail = (uint8_t)((_qTail + 1) % KEY_Q_CAP);
+    return key;
 }

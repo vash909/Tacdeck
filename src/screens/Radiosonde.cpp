@@ -113,7 +113,7 @@ void Radiosonde::_drawAll() {
     // Log area
     _log.draw(&gfx, 0, 148, 320, 66, COL_SONDE);
 
-    drawHints(&gfx, "ESC=Back", "S=Scan/Lock", "F=Freq");
+    drawHints(&gfx, "HOLD=Back", "S=Scan/Lock", "F=Freq");
 }
 
 void Radiosonde::_drawSondeData() {

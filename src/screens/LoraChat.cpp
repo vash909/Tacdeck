@@ -62,7 +62,7 @@ void LoraChat::_drawAll() {
 
     _drawMessages();
     _drawInputArea();
-    drawHints(&gfx, "ESC=Back", "ENTER=Send", "T=Type");
+    drawHints(&gfx, "HOLD=Back", "ENTER=Send", "T=Type");
 }
 
 void LoraChat::_drawMessages() {
@@ -176,10 +176,14 @@ void LoraChat::_pollRx() {
 
 // ================================================================
 void LoraChat::onKey(char key) {
-    if (key == KEY_ESC && _typing) {
-        _typing = false;
-        _input.clear();
-        _dirty = true;
+    if (key == KEY_ESC) {
+        if (_typing) {
+            _typing = false;
+            _input.clear();
+            _dirty = true;
+        } else {
+            _ui->pop();
+        }
         return;
     }
     if (key == 't' || key == 'T') {

@@ -23,7 +23,9 @@ private:
     GPS*       _gps;
     UIManager* _ui;
 
-    int _tabSel = 0;  // 0=Data, 1=Grid/APRS
+    int     _tabSel = 0;        // 0=Data, 1=Grid/APRS
+    uint8_t _lastSecondDrawn = 255;
+    uint32_t _lastGridRefreshMs = 0;
 
     void _drawAll();
     void _drawDataTab();

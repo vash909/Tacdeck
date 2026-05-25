@@ -182,7 +182,7 @@ void WeatherScreen::_drawAll() {
     if (_showRaw) _drawRawLog();
     else          _drawSensorGrid();
 
-    drawHints(&gfx, "ESC=Back", "TAB=Switch", "R=Clear");
+    drawHints(&gfx, "HOLD=Back", "TAB=Switch", "R=Clear");
 }
 
 void WeatherScreen::_drawSensorGrid() {

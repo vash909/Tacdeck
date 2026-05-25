@@ -155,7 +155,7 @@ void POCSAGScreen::_drawAll() {
         _drawMessages();
     }
 
-    drawHints(&gfx, "ESC=Back", "B=Baud", "R=Raw");
+    drawHints(&gfx, "HOLD=Back", "B=Baud", "R=Raw");
 }
 
 void POCSAGScreen::_drawMessages() {

@@ -1,5 +1,6 @@
 .claude/
 compile_commands.json
+.codex
 
 # PlatformIO
 .pio/

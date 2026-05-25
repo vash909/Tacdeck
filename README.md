@@ -139,7 +139,7 @@ The T-Deck Plus exposes a native ESP32-S3 USB-CDC serial port.
 | **Trackball ↑↓←→** | Move selection / scroll |
 | **Trackball click** | Confirm / open |
 | **ENTER** | Confirm |
-| **ESC** | Back / cancel |
+| **Trackball hold** | Back / cancel |
 | **S** | Save settings / start scan |
 | **TAB** | Switch tab (where available) |
 | **W** | WiFi TLE update (Satellite Tracker) |

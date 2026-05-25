@@ -211,7 +211,7 @@ void SatelliteScreen::_drawAll() {
     else                      _drawDetail();
 
     const char* hint3 = _rxActive ? "R=Stop RX" : "R=RX";
-    drawHints(&gfx, "ESC=Back",
+    drawHints(&gfx, "HOLD=Back",
               "W=WiFi TLE",
               _view==VIEW_LIST ? "ENTER=Detail" : hint3);
 }
@@ -433,8 +433,14 @@ void SatelliteScreen::onKey(char key) {
         return;
     }
 
-    if (key == KEY_ESC && _view == VIEW_DETAIL) {
-        _view = VIEW_LIST; _dirty = true; return;
+    if (key == KEY_ESC) {
+        if (_view == VIEW_DETAIL) {
+            _view = VIEW_LIST;
+            _dirty = true;
+        } else if (_view != VIEW_FETCH) {
+            _ui->pop();
+        }
+        return;
     }
 
     if (key == 'r' || key == 'R') {

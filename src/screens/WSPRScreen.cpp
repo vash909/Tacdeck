@@ -41,8 +41,10 @@ void WSPRScreen::update() {
         _dirty = false;
     }
 
-    static uint32_t lastSec = 0;
-    if (millis() - lastSec > 1000) { lastSec = millis(); _dirty = true; }
+    if ((_enabled || _txing) && (millis() - _lastLiveUpdateMs > 1000)) {
+        _lastLiveUpdateMs = millis();
+        if (!_dirty) _drawLiveStatus();
+    }
 }
 
 void WSPRScreen::_startBeacon() {
@@ -84,33 +86,7 @@ void WSPRScreen::_drawAll() {
     drawHeader(&gfx, "WSPR Beacon", COL_WSPR);
 
     int y = 44;
-
-    // Status badge
-    if (_txing) {
-        uint32_t elapsed = (millis() - _txStartMs) / 1000;
-        uint32_t remain  = WSPR_TX_MS / 1000 - elapsed;
-        gfx.fillRoundRect(200, y, 116, 14, 3, COL_WSPR);
-        gfx.setTextColor(COL_BG, COL_WSPR);
-        gfx.setTextSize(FONT_TINY);
-        char buf[20];
-        snprintf(buf, sizeof(buf), "TX %lus / 110s", (unsigned long)elapsed);
-        gfx.setCursor(204, y + 3);
-        gfx.print(buf);
-        drawProgressBar(&gfx, 0, y, 196, 14,
-                        (float)elapsed / 110.f, COL_WSPR);
-    } else if (_enabled) {
-        gfx.fillRoundRect(200, y, 116, 14, 3, COL_GREEN_DIM);
-        gfx.setTextColor(COL_TEXT, COL_GREEN_DIM);
-        gfx.setTextSize(FONT_TINY);
-        uint32_t waitSec = (_nextTxMs > millis()) ? (_nextTxMs - millis()) / 1000 : 0;
-        char buf[20];
-        snprintf(buf, sizeof(buf), "Next: %lus", (unsigned long)waitSec);
-        gfx.setCursor(204, y + 3);
-        gfx.print(buf);
-    } else {
-        drawButton(&gfx, 200, y, 116, 14, "BEACON OFF", false, COL_WSPR);
-    }
-
+    _drawLiveStatus();
     gfx.drawFastHLine(0, y + 16, 320, COL_DIVIDER);
     y += 18;
 
@@ -130,9 +106,43 @@ void WSPRScreen::_drawAll() {
     gfx.drawFastHLine(0, y + 60, 320, COL_DIVIDER);
     _log.draw(&gfx, 0, y + 62, 320, 88, COL_WSPR);
 
-    drawHints(&gfx, "ESC=Back",
+    drawHints(&gfx, "HOLD=Back",
               _enabled ? "E=Disable" : "E=Enable",
               "T=TX Now");
+}
+
+void WSPRScreen::_drawLiveStatus() {
+    auto& gfx = _disp->gfx();
+    constexpr int Y = 44;
+
+    // Clear only the live status row to avoid full-screen flicker.
+    gfx.fillRect(0, Y, 320, 14, COL_BG);
+
+    if (_txing) {
+        uint32_t elapsed = (millis() - _txStartMs) / 1000;
+        if (elapsed > (WSPR_TX_MS / 1000)) elapsed = (WSPR_TX_MS / 1000);
+
+        gfx.fillRoundRect(200, Y, 116, 14, 3, COL_WSPR);
+        gfx.setTextColor(COL_BG, COL_WSPR);
+        gfx.setTextSize(FONT_TINY);
+        char buf[20];
+        snprintf(buf, sizeof(buf), "TX %lus / 110s", (unsigned long)elapsed);
+        gfx.setCursor(204, Y + 3);
+        gfx.print(buf);
+        drawProgressBar(&gfx, 0, Y, 196, 14,
+                        (float)elapsed / 110.f, COL_WSPR);
+    } else if (_enabled) {
+        gfx.fillRoundRect(200, Y, 116, 14, 3, COL_GREEN_DIM);
+        gfx.setTextColor(COL_TEXT, COL_GREEN_DIM);
+        gfx.setTextSize(FONT_TINY);
+        uint32_t waitSec = (_nextTxMs > millis()) ? (_nextTxMs - millis()) / 1000 : 0;
+        char buf[20];
+        snprintf(buf, sizeof(buf), "Next: %lus", (unsigned long)waitSec);
+        gfx.setCursor(204, Y + 3);
+        gfx.print(buf);
+    } else {
+        drawButton(&gfx, 200, Y, 116, 14, "BEACON OFF", false, COL_WSPR);
+    }
 }
 
 void WSPRScreen::onKey(char key) {

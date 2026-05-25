@@ -112,7 +112,7 @@ void SettingsScreen::_drawAll() {
     }
 
     drawHints(&gfx,
-              _editing ? "ESC=Cancel" : "ESC=Back",
+              _editing ? "HOLD=Cancel" : "HOLD=Back",
               _editing ? "ENTER=OK"   : "ENTER=Edit",
               "S=Save All");
 }
@@ -161,7 +161,7 @@ void SettingsScreen::onKey(char key) {
     // Editing mode
     if (key == KEY_ENTER) { _commitEdit(_selIdx); return; }
     _editBox.input(key);
-    _drawAll();
+    _dirty = true;
 }
 
 void SettingsScreen::onTrackball(int dx, int dy, bool click) {

@@ -125,7 +125,7 @@ void FreqScanScreen::_drawAll() {
     gfx.drawFastHLine(0, 67, 320, COL_DIVIDER);
 
     _drawChannelList();
-    drawHints(&gfx, "ESC=Back",
+    drawHints(&gfx, "HOLD=Back",
               _scanning ? "S=Pause" : "S=Scan",
               "+/-=Squelch");
 }

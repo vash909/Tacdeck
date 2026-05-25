@@ -39,8 +39,10 @@ private:
     InputBox _msgInput;
     bool     _editing    = false;
     TextLog  _txLog;
+    uint32_t _lastLiveUpdateMs = 0;
 
     void _drawAll();
+    void _drawLiveStatus();
     void _txMessage(const char* msg);
     void _drawMorseVisual(const char* morse);
 };

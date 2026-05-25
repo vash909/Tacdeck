@@ -37,7 +37,7 @@ void LoRaWANScreen::_drawAll() {
 
     const char* hint = (_state == State::JOINED) ? "U=Uplink" :
                        (_state == State::IDLE)   ? "J=Join"   : "...";
-    drawHints(&gfx, "ESC=Back", "TAB=Switch", hint);
+    drawHints(&gfx, "HOLD=Back", "TAB=Switch", hint);
 }
 
 void LoRaWANScreen::_drawStatus() {
