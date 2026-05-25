@@ -46,12 +46,19 @@ private:
     TextLog  _rawLog;
     bool     _showRaw = false;
     float    _listenRSSI = -120.f;
+    bool     _rxReady = false;
+    char     _rxInitMsg[52] = "RX not started";
+    uint32_t _lastPktMs = 0;
+    uint32_t _lastRetuneMs = 0;
+    uint8_t  _retuneIdx = 0;
+    float    _rxFreqMHz = WEATHER_FREQ;
 
     void _drawAll();
     void _drawStatusLine();
     void _drawSensorGrid();
     void _drawRawLog();
     void _pollRx();
+    bool _startWeatherRx(float freqMHz);
     bool _decodeOregon(const uint8_t* data, size_t len, WeatherSensor& out);
     bool _decodeGenericOOK(const uint8_t* data, size_t len, WeatherSensor& out);
     void _addOrUpdateSensor(const WeatherSensor& s);

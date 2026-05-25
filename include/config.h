@@ -93,7 +93,7 @@
 // ---- Weather RX (ISM 433 MHz OOK sensors) ----
 #define WEATHER_FREQ              433.92f  // MHz (ISM center)
 #define WEATHER_OOK_BITRATE         1.0f   // kbps (1000 bps OOK)
-#define WEATHER_OOK_RXBW           58.6f   // kHz
+#define WEATHER_OOK_RXBW          156.2f   // kHz (wider to tolerate cheap sensor drift)
 
 // ---- LoRaWAN ----
 #define LORAWAN_REGION_EU433           1

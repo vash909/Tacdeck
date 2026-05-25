@@ -157,7 +157,9 @@ bool Radio::fskRead(RxPacket& pkt) {
 // ================================================================
 bool Radio::ookBegin(float freqMHz, float bitrateKbps, float rxBW) {
     _deleteClients();
-    _lastState = _radio.beginFSK(freqMHz, bitrateKbps, 0.0f, rxBW,
+    // SX1262/RadioLib rejects 0 kHz deviation on some builds; use a small
+    // valid deviation even for OOK-like reception configuration.
+    _lastState = _radio.beginFSK(freqMHz, bitrateKbps, 5.0f, rxBW,
                                   0, 16, LORA_TCXO_VOLTAGE, false);
     if (_lastState != RADIOLIB_ERR_NONE) return false;
     _radio.setDio2AsRfSwitch(true);

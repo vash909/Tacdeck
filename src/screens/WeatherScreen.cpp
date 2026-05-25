@@ -9,13 +9,63 @@
 WeatherScreen::WeatherScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
+bool WeatherScreen::_startWeatherRx(float freqMHz) {
+    _rxReady = false;
+    _rxFreqMHz = freqMHz;
+
+    if (!_radio->ookBegin(freqMHz, WEATHER_OOK_BITRATE, WEATHER_OOK_RXBW)) {
+        snprintf(_rxInitMsg, sizeof(_rxInitMsg), "Init fail: %s",
+                 Radio::stateStr(_radio->state()));
+        return false;
+    }
+
+    // Make GFSK packet receiver permissive for weather-like ISM bursts.
+    uint8_t dummy = 0x00;
+    int16_t stSync = _radio->hw().setSyncWord(&dummy, 0);  // no sync filter
+    int16_t stCRC  = _radio->hw().setCRC(0);               // no CRC filter
+    int16_t stLen  = _radio->hw().variablePacketLengthMode(255);
+    bool    stRx   = _radio->ookStartRx();
+
+    if (stSync != RADIOLIB_ERR_NONE) {
+        snprintf(_rxInitMsg, sizeof(_rxInitMsg), "Sync cfg fail: %s",
+                 Radio::stateStr(stSync));
+        return false;
+    }
+    if (stCRC != RADIOLIB_ERR_NONE) {
+        snprintf(_rxInitMsg, sizeof(_rxInitMsg), "CRC cfg fail: %s",
+                 Radio::stateStr(stCRC));
+        return false;
+    }
+    if (stLen != RADIOLIB_ERR_NONE) {
+        snprintf(_rxInitMsg, sizeof(_rxInitMsg), "Len cfg fail: %s",
+                 Radio::stateStr(stLen));
+        return false;
+    }
+    if (!stRx) {
+        snprintf(_rxInitMsg, sizeof(_rxInitMsg), "RX start fail: %s",
+                 Radio::stateStr(_radio->state()));
+        return false;
+    }
+
+    _rxReady = true;
+    snprintf(_rxInitMsg, sizeof(_rxInitMsg), "RX %.3f MHz ready", (double)freqMHz);
+    return true;
+}
+
 void WeatherScreen::onEnter() {
     memset(_sensors, 0, sizeof(_sensors));
     _sensorCount = 0;
+    _listenRSSI  = -120.0f;
+    _lastPktMs   = millis();
+    _lastRetuneMs= millis();
+    _retuneIdx   = 0;
+    _rxFreqMHz   = WEATHER_FREQ;
+    strlcpy(_rxInitMsg, "RX not started", sizeof(_rxInitMsg));
 
-    // OOK mode for 433.92 MHz ISM sensors
-    _radio->ookBegin(WEATHER_FREQ, WEATHER_OOK_BITRATE, WEATHER_OOK_RXBW);
-    _radio->ookStartRx();
+    _startWeatherRx(WEATHER_FREQ);
+
+    _rawLog.addLine(_rxInitMsg);
+    Serial.printf("[Weather] %s\n", _rxInitMsg);
     _dirty = true;
 }
 
@@ -24,7 +74,19 @@ void WeatherScreen::onExit() {
 }
 
 void WeatherScreen::update() {
+    if (_rxReady) _listenRSSI = _radio->getRSSI();
     _pollRx();
+
+    // Retune among common offsets if no valid packet is seen for a while.
+    // Cheap 433MHz sensors are often a bit off-center from 433.920.
+    static constexpr float kFreqList[] = { 433.920f, 433.880f, 433.960f };
+    if (millis() - _lastPktMs > 7000 && millis() - _lastRetuneMs > 3000) {
+        _lastRetuneMs = millis();
+        _retuneIdx = (_retuneIdx + 1) % 3;
+        _startWeatherRx(kFreqList[_retuneIdx]);
+        _rawLog.addLine(_rxInitMsg);
+        if (!_dirty) _drawStatusLine();
+    }
 
     if (_dirty) {
         _drawAll();
@@ -42,53 +104,59 @@ void WeatherScreen::update() {
 }
 
 void WeatherScreen::_pollRx() {
+    if (!_rxReady) return;
     if (!_radio->fskAvailable()) return;
-    RxPacket pkt;
-    if (!_radio->fskRead(pkt) || !pkt.valid) return;
 
-    _listenRSSI = pkt.rssi;
+    // Drain multiple packets per frame to avoid missing short burst repeats.
+    for (int n = 0; n < 8 && _radio->fskAvailable(); n++) {
+        RxPacket pkt;
+        if (!_radio->fskRead(pkt) || !pkt.valid) break;
 
-    WeatherSensor sensor;
-    memset(&sensor, 0, sizeof(sensor));
+        _listenRSSI = pkt.rssi;
+        _lastPktMs  = millis();
 
-    bool decoded = false;
+        WeatherSensor sensor;
+        memset(&sensor, 0, sizeof(sensor));
 
-    // Try Oregon Scientific first
-    if (pkt.len >= 8 && _decodeOregon(pkt.data, pkt.len, sensor)) {
-        decoded = true;
-        strlcpy(sensor.type, "Oregon", sizeof(sensor.type));
-    }
-    // Try generic OOK
-    else if (pkt.len >= 4 && _decodeGenericOOK(pkt.data, pkt.len, sensor)) {
-        decoded = true;
-    }
+        bool decoded = false;
 
-    if (decoded) {
-        sensor.lastSeenMs = millis();
-        sensor.valid      = true;
-        _addOrUpdateSensor(sensor);
-
-        char line[54];
-        snprintf(line, sizeof(line), "[%s] %.1fC %.0f%% %.0fdBm",
-                 sensor.id, sensor.tempC, sensor.humRH, (double)pkt.rssi);
-        _rawLog.addLine(line);
-        if (!_dirty) {
-            _drawStatusLine();
-            if (_showRaw) _drawRawLog();
-            else          _drawSensorGrid();
+        // Try Oregon Scientific first
+        if (pkt.len >= 8 && _decodeOregon(pkt.data, pkt.len, sensor)) {
+            decoded = true;
+            strlcpy(sensor.type, "Oregon", sizeof(sensor.type));
         }
-    } else {
-        // Log raw hex
-        char line[54];
-        char hex[30] = "";
-        for (size_t i = 0; i < pkt.len && i < 12; i++) {
-            char h[4];
-            snprintf(h, sizeof(h), "%02X ", pkt.data[i]);
-            strncat(hex, h, sizeof(hex) - strlen(hex) - 1);
+        // Try generic OOK
+        else if (pkt.len >= 4 && _decodeGenericOOK(pkt.data, pkt.len, sensor)) {
+            decoded = true;
         }
-        snprintf(line, sizeof(line), "[RAW] %s (%.0fdBm)", hex, (double)pkt.rssi);
-        _rawLog.addLine(line);
-        if (!_dirty && _showRaw) _drawRawLog();
+
+        if (decoded) {
+            sensor.lastSeenMs = millis();
+            sensor.valid      = true;
+            _addOrUpdateSensor(sensor);
+
+            char line[54];
+            snprintf(line, sizeof(line), "[%s] %.1fC %.0f%% %.0fdBm",
+                     sensor.id, sensor.tempC, sensor.humRH, (double)pkt.rssi);
+            _rawLog.addLine(line);
+            if (!_dirty) {
+                _drawStatusLine();
+                if (_showRaw) _drawRawLog();
+                else          _drawSensorGrid();
+            }
+        } else {
+            // Log raw hex
+            char line[54];
+            char hex[30] = "";
+            for (size_t i = 0; i < pkt.len && i < 12; i++) {
+                char h[4];
+                snprintf(h, sizeof(h), "%02X ", pkt.data[i]);
+                strncat(hex, h, sizeof(hex) - strlen(hex) - 1);
+            }
+            snprintf(line, sizeof(line), "[RAW] %s (%.0fdBm)", hex, (double)pkt.rssi);
+            _rawLog.addLine(line);
+            if (!_dirty && _showRaw) _drawRawLog();
+        }
     }
 }
 
@@ -190,8 +258,8 @@ void WeatherScreen::_drawStatusLine() {
 
     char stLine[40];
     snprintf(stLine, sizeof(stLine),
-             "433.92MHz OOK  RSSI:%.0fdBm  %d sensors",
-             (double)_listenRSSI, _sensorCount);
+             "%.3fMHz RSSI:%.0f %d sens",
+             (double)_rxFreqMHz, (double)_listenRSSI, _sensorCount);
     gfx.setTextSize(FONT_TINY);
     gfx.setTextColor(COL_TEXT_DIM, COL_BG);
     gfx.setCursor(2, 47);
@@ -208,10 +276,10 @@ void WeatherScreen::_drawSensorGrid() {
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);
         gfx.setTextSize(FONT_SMALL);
         gfx.setCursor(50, Y0 + 40);
-        gfx.print("Listening...");
+        gfx.print(_rxReady ? "Listening..." : "RX init failed");
         gfx.setTextSize(FONT_TINY);
         gfx.setCursor(30, Y0 + 60);
-        gfx.print("Oregon Sci / Acurite / Generic");
+        gfx.print(_rxReady ? "Oregon Sci / Acurite / Generic" : _rxInitMsg);
         return;
     }
 
