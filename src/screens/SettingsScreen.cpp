@@ -27,6 +27,7 @@ void SettingsScreen::onEnter() {
     _viewOffset = 0;
     _ensureSelectionVisible();
     _saved   = false;
+    _saveOk  = true;
     _dirty   = true;
 }
 
@@ -63,9 +64,22 @@ void SettingsScreen::_loadSettings() {
 }
 
 void SettingsScreen::_saveSettings() {
+    bool ok = true;
     for (int i = 0; i < NUM_ITEMS; i++) {
-        Storage::setString(_items[i].key, _items[i].value);
+        if (!Storage::setString(_items[i].key, _items[i].value)) {
+            // If Preferences got closed unexpectedly, reopen and retry once.
+            Storage::begin();
+            if (!Storage::setString(_items[i].key, _items[i].value)) {
+                Serial.printf("[SETTINGS] Save failed key=%s value=%s\n",
+                              _items[i].key, _items[i].value);
+                ok = false;
+            }
+        }
     }
+
+    // Reload from persisted values so UI mirrors what is actually in NVS.
+    _loadSettings();
+    _saveOk  = ok;
     _saved   = true;
     _savedMs = millis();
 }
@@ -124,11 +138,12 @@ void SettingsScreen::_drawAll() {
 
     // Saved notification
     if (_saved) {
-        gfx.fillRoundRect(80, 96, 160, 20, 4, COL_GREEN);
-        gfx.setTextColor(COL_BG, COL_GREEN);
+        const uint16_t badgeCol = _saveOk ? COL_GREEN : COL_RED;
+        gfx.fillRoundRect(80, 96, 160, 20, 4, badgeCol);
+        gfx.setTextColor(COL_BG, badgeCol);
         gfx.setTextSize(FONT_SMALL);
-        gfx.setCursor(100, 100);
-        gfx.print("Saved!");
+        gfx.setCursor(_saveOk ? 100 : 86, 100);
+        gfx.print(_saveOk ? "Saved!" : "Save FAILED");
     }
 
     drawHints(&gfx,

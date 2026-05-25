@@ -25,7 +25,9 @@ bool Storage::getString(const char* key, char* out, size_t sz, const char* def) 
 
 bool Storage::setString(const char* key, const char* value) {
     if (!_open || !key || !value) return false;
-    return _prefs.putString(key, value) > 0;
+    _prefs.putString(key, value);
+    String check = _prefs.getString(key, "");
+    return check.equals(value);
 }
 
 int32_t Storage::getInt(const char* key, int32_t def) {

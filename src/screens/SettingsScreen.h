@@ -39,6 +39,7 @@ private:
     InputBox    _editBox;
     bool        _editing  = false;
     bool        _saved    = false;
+    bool        _saveOk   = true;
     uint32_t    _savedMs  = 0;
 
     void _loadSettings();
