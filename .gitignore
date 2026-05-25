@@ -1,4 +1,5 @@
 .claude/
+compile_commands.json
 
 # PlatformIO
 .pio/
