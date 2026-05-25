@@ -1,4 +1,5 @@
 #include "Radio.h"
+#include "../utils/WSPREncoder.h"
 #include <Arduino.h>
 
 // ================================================================
@@ -63,7 +64,8 @@ bool Radio::loraBegin(const LoRaCfg& cfg) {
 
 bool Radio::loraTx(const uint8_t* data, size_t len) {
     _mode      = RadioMode::LORA_TX;
-    _lastState = _radio.transmit(data, len);
+    // RadioLib 6.x takes non-const pointer; data is not modified
+    _lastState = _radio.transmit(const_cast<uint8_t*>(data), len);
     _mode      = RadioMode::IDLE;
     return _lastState == RADIOLIB_ERR_NONE;
 }
@@ -114,7 +116,7 @@ bool Radio::fskBegin(const FSKCfg& cfg) {
 
 bool Radio::fskTx(const uint8_t* data, size_t len) {
     _mode      = RadioMode::FSK_TX;
-    _lastState = _radio.transmit(data, len);
+    _lastState = _radio.transmit(const_cast<uint8_t*>(data), len);
     _mode      = RadioMode::IDLE;
     return _lastState == RADIOLIB_ERR_NONE;
 }
@@ -212,16 +214,35 @@ bool Radio::initRTTY(float freq, uint32_t shift, float baud, uint8_t enc) {
     return true;
 }
 
-bool Radio::initWSPR(float freq, float ppm) {
+bool Radio::initWSPR(float freq, float /*ppm*/) {
     _deleteClients();
-    _wspr = new WSPRClient(&_radio);
-    _lastState = _wspr->begin(freq, ppm);
+    // WSPR uses FSK4: tone spacing ~1.4648 Hz, rate ~1.4648 Bd
+    // We approximate with 1 Hz shift and 1 Bd (closest integer)
+    _wspr = new FSK4Client(&_radio);
+    _lastState = _wspr->begin(freq, 1, 1);  // base, shift_Hz, rate_Bd
     if (_lastState != RADIOLIB_ERR_NONE) {
         delete _wspr; _wspr = nullptr;
         return false;
     }
     _mode = RadioMode::WSPR_TX;
     return true;
+}
+
+bool Radio::wsprTransmit(const char* callsign, const char* grid, int8_t powerDbm) {
+    if (!initWSPR(WSPR_TX_FREQ, 0.0f)) return false;
+    if (!_wspr) return false;
+
+    // Encode 162 WSPR symbols
+    uint8_t symbols[WSPREncoder::NUM_SYMBOLS];
+    WSPREncoder::encode(callsign, grid, powerDbm, symbols);
+
+    // Transmit — each symbol ≈ 683 ms (8192/12000 s)
+    // FSK4Client::write() outputs one symbol per baud period
+    size_t sent = _wspr->write(symbols, WSPREncoder::NUM_SYMBOLS);
+
+    _wspr->standby();
+    _mode = RadioMode::IDLE;
+    return (sent == WSPREncoder::NUM_SYMBOLS);
 }
 
 bool Radio::initMorse(float freq, int8_t power) {

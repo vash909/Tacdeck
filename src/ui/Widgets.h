@@ -3,6 +3,17 @@
 #include "Theme.h"
 #include <functional>
 
+// Key codes (subset; full set in hardware/Keyboard.h)
+#ifndef KEY_BACKSPACE
+#  define KEY_BACKSPACE 0x08
+#endif
+#ifndef KEY_ENTER
+#  define KEY_ENTER     0x0D
+#endif
+#ifndef KEY_ESC
+#  define KEY_ESC       0x1B
+#endif
+
 // ================================================================
 // Lightweight widget toolkit built directly on LovyanGFX
 // ================================================================
@@ -167,7 +178,3 @@ inline void drawProgressBar(lgfx::LovyanGFX* gfx,
     gfx->fillRect(x + 1 + filled, y + 1, w - 2 - filled, h - 2, COL_BG);
 }
 
-// ---- Key needed from Keyboard.h ----
-#ifndef KEY_BACKSPACE
-#define KEY_BACKSPACE 0x08
-#endif

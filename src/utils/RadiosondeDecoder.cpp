@@ -3,6 +3,10 @@
 #include <cstring>
 #include <cmath>
 
+// Out-of-class definitions for constexpr arrays (required when ODR-used)
+constexpr uint8_t RadiosondeDecoder::RS41_SYNC[];
+constexpr uint8_t RadiosondeDecoder::DFM09_SYNC[];
+
 // ---- RS41 de-whitening mask (first 64 bytes) ----
 const uint8_t RadiosondeDecoder::RS41_MASK[64] = {
     0x96,0x83,0x3E,0x51,0xB1,0x49,0x08,0x98,

@@ -66,7 +66,7 @@
 #define RTTY_DEFAULT_FREQ         434.0f
 #define RTTY_DEFAULT_SHIFT          450    // Hz (170/425/450/850)
 #define RTTY_DEFAULT_BAUD          45.45f  // or 50
-#define RTTY_DEFAULT_ENCODING         ITA2
+#define RTTY_DEFAULT_ENCODING         RADIOLIB_ASCII
 
 // ---- WSPR ----
 #define WSPR_DEFAULT_POWER_DBM       10    // dBm EIRP to report

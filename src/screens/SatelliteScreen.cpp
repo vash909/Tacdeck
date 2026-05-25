@@ -1,6 +1,7 @@
 #include "SatelliteScreen.h"
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include "../ui/Widgets.h"
 #include "../utils/Storage.h"

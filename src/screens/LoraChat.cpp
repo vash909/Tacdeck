@@ -1,6 +1,7 @@
 #include "LoraChat.h"
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include "../ui/StatusBar.h"
 #include <Arduino.h>

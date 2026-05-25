@@ -1,6 +1,7 @@
 #include "LoRaWANScreen.h"
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include <Arduino.h>
 

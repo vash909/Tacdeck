@@ -85,11 +85,14 @@ public:
 
     // ----- Clients (TX modes) -----
     RTTYClient*  rtty()  { return _rtty; }
-    WSPRClient*  wspr()  { return _wspr; }
+    FSK4Client*  wspr()  { return _wspr; }   // used internally; prefer wsprTransmit()
     MorseClient* morse() { return _morse; }
 
-    bool initRTTY(float freq, uint32_t shift, float baud, uint8_t enc = ITA2);
+    bool initRTTY(float freq, uint32_t shift, float baud,
+                  uint8_t enc = RADIOLIB_ASCII);
     bool initWSPR(float freq, float ppm = 0.0f);
+    // Encode and transmit one full WSPR Type-1 message (~110 s, blocking)
+    bool wsprTransmit(const char* callsign, const char* grid, int8_t powerDbm);
     bool initMorse(float freq, int8_t power = CW_DEFAULT_POWER);
 
     // ----- State -----
@@ -109,7 +112,7 @@ private:
     bool      _initialized = false;
 
     RTTYClient*  _rtty  = nullptr;
-    WSPRClient*  _wspr  = nullptr;
+    FSK4Client*  _wspr  = nullptr;
     MorseClient* _morse = nullptr;
 
     void _deleteClients();

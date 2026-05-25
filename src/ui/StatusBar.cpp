@@ -2,6 +2,7 @@
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
 #include "../hardware/Radio.h"
+#include "Widgets.h"
 #include <Arduino.h>
 
 void StatusBar::begin(Display* disp, GPS* gps, Radio* radio) {

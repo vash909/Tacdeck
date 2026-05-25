@@ -1,4 +1,5 @@
 #pragma once
+#include <LovyanGFX.hpp>
 #include "../ui/Screen.h"
 #include "../ui/Theme.h"
 

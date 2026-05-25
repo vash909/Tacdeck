@@ -1,6 +1,7 @@
 #include "GPSScreen.h"
 #include "../hardware/Display.h"
 #include "../hardware/Radio.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include "../ui/Widgets.h"
 #include <Arduino.h>

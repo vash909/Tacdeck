@@ -1,6 +1,7 @@
 #include "WSPRScreen.h"
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include "../utils/Storage.h"
 #include <Arduino.h>
@@ -30,18 +31,7 @@ void WSPRScreen::onExit() {
 }
 
 void WSPRScreen::update() {
-    // Manage TX state
-    if (_txing && millis() - _txStartMs > WSPR_TX_MS) {
-        _txing = false;
-        _radio->standby();
-        char line[48];
-        snprintf(line, sizeof(line), "[TX#%d] Done  %.3f MHz",
-                 _txCount, (double)_freq);
-        _log.addLine(line);
-        _nextTxMs = millis() + WSPR_SLOT_SECONDS * 1000UL;
-        _dirty = true;
-    }
-
+    // TX is blocking (~110 s), so _txing is cleared synchronously in _startBeacon()
     if (_enabled && !_txing && millis() >= _nextTxMs) {
         _startBeacon();
     }
@@ -56,26 +46,25 @@ void WSPRScreen::update() {
 }
 
 void WSPRScreen::_startBeacon() {
-    if (!_radio->initWSPR(_freq, 0.0f)) {
-        _log.addLine("[ERR] WSPR init failed");
-        _dirty = true;
-        return;
-    }
+    _txing     = true;
+    _txStartMs = millis();
+    _dirty     = true;
 
-    WSPRClient* w = _radio->wspr();
-    if (!w) return;
-
-    // WSPR transmit (blocking ~110s — run in background in real use)
-    // For now we start it and let it run
-    int16_t s = w->transmit(_callsign, _grid, _powerDbm);
-    if (s == RADIOLIB_ERR_NONE) {
+    // wsprTransmit() is blocking for ~110 s — this is intentional for WSPR
+    // (the T-Deck UI freezes during TX; display will resume after completion)
+    bool ok = _radio->wsprTransmit(_callsign, _grid, _powerDbm);
+    if (ok) {
         _txCount++;
-        _txing    = true;
-        _txStartMs= millis();
+        char line[48];
+        snprintf(line, sizeof(line), "[TX#%d] Done  %.3f MHz",
+                 _txCount, (double)_freq);
+        _log.addLine(line);
     } else {
         _log.addLine("[ERR] WSPR TX failed");
     }
-    _dirty = true;
+    _txing    = false;
+    _nextTxMs = millis() + WSPR_SLOT_SECONDS * 1000UL;
+    _dirty    = true;
 }
 
 void WSPRScreen::_stopBeacon() {

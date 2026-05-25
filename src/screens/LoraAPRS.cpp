@@ -1,6 +1,7 @@
 #include "LoraAPRS.h"
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include "../ui/Widgets.h"
 #include "../utils/Storage.h"
@@ -158,16 +159,20 @@ void LoraAPRS::_pollRx() {
 }
 
 void LoraAPRS::_decodeAndLog(const RxPacket& pkt) {
-    pkt.data[pkt.len] = '\0';
+    // Copy to a local null-terminated buffer (pkt.data is const here)
+    char payload[257];
+    size_t payLen = pkt.len < 256 ? pkt.len : 256;
+    memcpy(payload, pkt.data, payLen);
+    payload[payLen] = '\0';
     char line[54];
 
     // Try to extract callsign (first token before '>')
-    char* arrowPos = (char*)memchr(pkt.data, '>', pkt.len);
+    char* arrowPos = (char*)memchr(payload, '>', payLen);
     if (arrowPos) {
-        size_t callLen = arrowPos - (char*)pkt.data;
+        size_t callLen = arrowPos - payload;
         if (callLen > 10) callLen = 10;
         char call[11];
-        memcpy(call, pkt.data, callLen);
+        memcpy(call, payload, callLen);
         call[callLen] = '\0';
         snprintf(line, sizeof(line), "[RX] %s  %.0fdBm SNR%.0f",
                  call, (double)pkt.rssi, (double)pkt.snr);

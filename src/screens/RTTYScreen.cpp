@@ -1,6 +1,7 @@
 #include "RTTYScreen.h"
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
+#include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include <Arduino.h>
 
@@ -100,7 +101,7 @@ void RTTYScreen::_drawTXPanel() {
 
 // ================================================================
 void RTTYScreen::_startTX() {
-    _radio->initRTTY(_freq, _shift, _baud, ITA2);
+    _radio->initRTTY(_freq, _shift, _baud, RADIOLIB_ASCII);
     _txActive = true;
 }
 

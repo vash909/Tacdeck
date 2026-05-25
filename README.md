@@ -223,56 +223,11 @@ The built-in propagator uses a simplified SGP4-lite (Kepler + ECI→ECEF). Typic
 
 ---
 
-## 🚀 Pushing to GitHub
-
-Run these commands from the project root (replace `<user>` and `<repo>` with your GitHub username and repository name):
-
-```bash
-# 1 — Initialise git (skip if already done)
-git init
-
-# 2 — Stage all files (.gitignore already excludes secrets, build artifacts, IDE files)
-git add .
-
-# 3 — First commit
-git commit -m "Initial commit — Tacdeck v1.0.0"
-
-# 4 — Set the remote URL
-git remote add origin https://github.com/<user>/<repo>.git
-
-# 5 — Push
-git branch -M main
-git push -u origin main
-```
-
-If the GitHub repository was created with a default README (not empty), merge first:
-
-```bash
-git pull origin main --allow-unrelated-histories
-git push -u origin main
-```
-
-For subsequent updates:
-
-```bash
-git add .
-git commit -m "brief description of change"
-git push
-```
-
----
-
 ## 🔒 Security
 
 > **WiFi passwords are never committed to this repository.**
 
 The `.gitignore` excludes `secrets.h` and `credentials.h`. Any WiFi credentials entered through the Settings screen are stored exclusively in the ESP32 NVS flash and never reach the source tree.
-
----
-
-## 📜 License
-
-MIT — see [LICENSE](LICENSE) (or standard MIT terms if the file is absent).
 
 ---
 

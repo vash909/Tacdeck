@@ -235,16 +235,16 @@ bool TLEFetcher::propagate(const TLEEntry& tle, double deltaT,
                              double& latDeg, double& lonDeg, double& altKm) {
     if (!tle.valid || tle.meanMotion <= 0) return false;
 
-    const double GM    = 3.986004418e14;   // m³/s²
-    const double RE    = 6371.0;            // km
-    const double TWO_PI= 2.0 * M_PI;
+    const double GM     = 3.986004418e14;   // m³/s²
+    const double RE     = 6371.0;            // km
+    const double TPI    = 2.0 * M_PI;       // avoid TPI clash with Arduino.h
 
     // Semi-major axis from mean motion (rev/day → rad/s)
-    double n    = tle.meanMotion * TWO_PI / 86400.0;
+    double n    = tle.meanMotion * TPI / 86400.0;
     double a    = cbrt(GM / (n * n)) / 1000.0;  // km
 
     // Mean anomaly at time T
-    double M    = fmod(tle.meanAnomaly * M_PI / 180.0 + n * deltaT, TWO_PI);
+    double M    = fmod(tle.meanAnomaly * M_PI / 180.0 + n * deltaT, TPI);
 
     // Eccentric anomaly (Newton–Raphson, 5 iterations)
     double e    = tle.eccentricity;
