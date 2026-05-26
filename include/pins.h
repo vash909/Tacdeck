@@ -34,7 +34,7 @@
 // ---------- GPS — u-blox MIA-M10Q (UART) ----------
 #define TDECK_GPS_RX        44   // ESP32 RX ← GPS TX
 #define TDECK_GPS_TX        43   // ESP32 TX → GPS RX
-#define GPS_BAUD          9600
+#define GPS_BAUD         38400  // MIA-M10Q default on T-Deck Plus
 
 // ---------- I2C Bus (Keyboard + ES7210) ----------
 #define TDECK_I2C_SDA       18

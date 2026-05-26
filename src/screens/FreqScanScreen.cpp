@@ -3,7 +3,9 @@
 #include "../hardware/GPS.h"
 #include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
+#include "../utils/Storage.h"
 #include <Arduino.h>
+#include <cstdlib>
 
 FreqScanScreen::FreqScanScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
@@ -13,6 +15,24 @@ static inline int _freqScanMaxOffset(int numChannels) {
 }
 
 void FreqScanScreen::onEnter() {
+    char buf[16];
+
+    Storage::getString(NVS_KEY_SCAN_START, buf, sizeof(buf), "430.000");
+    float f = strtof(buf, nullptr);
+    _startFreq = (f >= 100.f && f < 960.f) ? f : SCANNER_START_FREQ;
+
+    Storage::getString(NVS_KEY_SCAN_END, buf, sizeof(buf), "440.000");
+    f = strtof(buf, nullptr);
+    _endFreq = (f > _startFreq && f <= 960.f) ? f : SCANNER_END_FREQ;
+
+    Storage::getString(NVS_KEY_SCAN_STEP, buf, sizeof(buf), "12.5");
+    f = strtof(buf, nullptr);
+    _stepKHz = (f > 0.f && f <= 1000.f) ? f : SCANNER_STEP_KHZ;
+
+    Storage::getString(NVS_KEY_SCAN_SQUELCH, buf, sizeof(buf), "-90");
+    f = strtof(buf, nullptr);
+    _squelch = (f < 0.f) ? f : SCANNER_SQUELCH_DBM;
+
     _buildChannelList();
 
     FSKCfg cfg;

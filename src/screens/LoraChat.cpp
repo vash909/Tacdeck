@@ -4,19 +4,38 @@
 #include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
 #include "../ui/StatusBar.h"
+#include "../utils/Storage.h"
 #include <Arduino.h>
+#include <cstdlib>
 
 LoraChat::LoraChat(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
 void LoraChat::onEnter() {
-    // Configure LoRa
-    _cfg.freq     = LORA_DEFAULT_FREQ;
-    _cfg.sf       = LORA_DEFAULT_SF;
-    _cfg.bw       = LORA_DEFAULT_BW;
-    _cfg.cr       = LORA_DEFAULT_CR;
-    _cfg.syncWord = LORA_DEFAULT_SYNC;
-    _cfg.power    = LORA_DEFAULT_POWER;
+    char buf[16];
+
+    Storage::getString(NVS_KEY_LORA_FREQ, buf, sizeof(buf), "433.000");
+    _cfg.freq = strtof(buf, nullptr);
+    if (_cfg.freq < 150.f || _cfg.freq > 960.f) _cfg.freq = LORA_DEFAULT_FREQ;
+
+    Storage::getString(NVS_KEY_LORA_SF, buf, sizeof(buf), "9");
+    int sf = atoi(buf);
+    _cfg.sf = (sf >= 5 && sf <= 12) ? (uint8_t)sf : LORA_DEFAULT_SF;
+
+    Storage::getString(NVS_KEY_LORA_BW, buf, sizeof(buf), "125");
+    _cfg.bw = strtof(buf, nullptr);
+    if (_cfg.bw <= 0.f) _cfg.bw = LORA_DEFAULT_BW;
+
+    Storage::getString(NVS_KEY_LORA_CR, buf, sizeof(buf), "7");
+    int cr = atoi(buf);
+    _cfg.cr = (cr >= 5 && cr <= 8) ? (uint8_t)cr : LORA_DEFAULT_CR;
+
+    Storage::getString(NVS_KEY_LORA_SYNC, buf, sizeof(buf), "18");
+    _cfg.syncWord = (uint8_t)atoi(buf);
+
+    Storage::getString(NVS_KEY_LORA_POWER, buf, sizeof(buf), "22");
+    int pwr = atoi(buf);
+    _cfg.power = (pwr >= 2 && pwr <= 22) ? (int8_t)pwr : LORA_DEFAULT_POWER;
 
     _radio->loraBegin(_cfg);
     _radio->loraStartRx();

@@ -12,15 +12,15 @@ static constexpr int SB_H      = STATUS_BAR_H;  // 24px
 static constexpr int SB_W      = 320;
 
 static constexpr int X_MODE    = 4;             // mode label start
-static constexpr int W_MODE    = 70;
-static constexpr int X_GPS     = 78;
-static constexpr int W_GPS     = 60;
-static constexpr int X_TIME    = 152;
-static constexpr int W_TIME    = 54;
-static constexpr int X_RSSI    = 222;
-static constexpr int W_RSSI    = 36;
-static constexpr int X_BAT     = 265;
-static constexpr int W_BAT     = 46;            // icon(22)+nub(2)+margin
+static constexpr int W_MODE    = 72;
+static constexpr int X_GPS     = 80;
+static constexpr int W_GPS     = 56;
+static constexpr int X_TIME    = 140;
+static constexpr int W_TIME    = 56;
+static constexpr int X_RSSI    = 200;           // RSSI text (e.g. "-100dB")
+static constexpr int W_RSSI    = 42;
+static constexpr int X_BAT     = 246;           // battery icon
+static constexpr int W_BAT     = 74;            // icon(22)+nub(3)+gap(2)+text(24)+margin
 static constexpr int TEXT_Y    = 8;
 
 // ================================================================
@@ -173,7 +173,16 @@ void StatusBar::_drawRSSI() {
     if (!_radio || !_radio->ready()) return;
     auto& gfx = _disp->gfx();
     _lastRSSI = _radio->getRSSI();
-    drawRSSIBar(&gfx, X_RSSI, 6, W_RSSI - 6, 12, _lastRSSI);
+
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%ddB", (int)_lastRSSI);
+
+    gfx.setTextSize(FONT_TINY);
+    gfx.setTextColor(rssiToColor(_lastRSSI), COL_BG_HEADER);
+    // Right-align within the RSSI region
+    int tw = strlen(buf) * 6;
+    gfx.setCursor(X_RSSI + W_RSSI - tw, TEXT_Y);
+    gfx.print(buf);
 }
 
 void StatusBar::_drawBattery() {
@@ -183,30 +192,29 @@ void StatusBar::_drawBattery() {
 
     constexpr int x = X_BAT;
     constexpr int y = 4;
-    constexpr int W = 20;
+    constexpr int W = 22;
     constexpr int H = 16;
 
     uint16_t col = pct > 60 ? COL_GREEN
                  : pct > 25 ? COL_YELLOW
                  :             COL_RED;
 
-    // Outline
+    // Battery outline
     gfx.drawRect(x, y, W, H, COL_TEXT_DIM);
     // Terminal nub
-    gfx.fillRect(x + W, y + 5, 2, H - 10, COL_TEXT_DIM);
-
+    gfx.fillRect(x + W, y + 5, 3, H - 10, COL_TEXT_DIM);
     // Fill bar
     int fill = (int)((uint32_t)pct * (W - 2) / 100);
     if (fill > W - 2) fill = W - 2;
-    gfx.fillRect(x + 1, y + 1, fill,       H - 2, col);
-    gfx.fillRect(x + 1 + fill, y + 1, W - 2 - fill, H - 2, COL_BG_HEADER);
+    gfx.fillRect(x + 1, y + 1, fill,                H - 2, col);
+    gfx.fillRect(x + 1 + fill, y + 1, W-2-fill, H - 2, COL_BG_HEADER);
 
-    // Percentage label to the right of icon
-    gfx.setTextSize(FONT_TINY);
-    gfx.setTextColor(COL_TEXT_DIM, COL_BG_HEADER);
+    // Percentage text to the right of the icon
     char buf[5];
     snprintf(buf, sizeof(buf), "%u%%", pct);
-    gfx.setCursor(x + W + 4, TEXT_Y);
+    gfx.setTextSize(FONT_TINY);
+    gfx.setTextColor(col, COL_BG_HEADER);
+    gfx.setCursor(x + W + 5, TEXT_Y);
     gfx.print(buf);
 }
 

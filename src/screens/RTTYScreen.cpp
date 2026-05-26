@@ -3,7 +3,9 @@
 #include "../hardware/GPS.h"
 #include "../hardware/Keyboard.h"
 #include "../ui/UIManager.h"
+#include "../utils/Storage.h"
 #include <Arduino.h>
+#include <cstdlib>
 
 constexpr float    RTTYScreen::BAUD_OPTIONS[];
 constexpr uint32_t RTTYScreen::SHIFT_OPTIONS[];
@@ -12,6 +14,31 @@ RTTYScreen::RTTYScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
 void RTTYScreen::onEnter() {
+    char buf[16];
+
+    Storage::getString(NVS_KEY_RTTY_FREQ, buf, sizeof(buf), "434.000");
+    float f = strtof(buf, nullptr);
+    _freq = (f >= 100.f && f <= 960.f) ? f : RTTY_DEFAULT_FREQ;
+
+    Storage::getString(NVS_KEY_RTTY_BAUD, buf, sizeof(buf), "45.45");
+    float baud = strtof(buf, nullptr);
+    _baudIdx = 0;
+    for (int i = 1; i < 4; i++) {
+        if (fabsf(BAUD_OPTIONS[i] - baud) < fabsf(BAUD_OPTIONS[_baudIdx] - baud))
+            _baudIdx = i;
+    }
+    _baud = BAUD_OPTIONS[_baudIdx];
+
+    Storage::getString(NVS_KEY_RTTY_SHIFT, buf, sizeof(buf), "450");
+    uint32_t shift = (uint32_t)atoi(buf);
+    _shiftIdx = 1;
+    for (int i = 0; i < 3; i++) {
+        uint32_t d1 = shift > SHIFT_OPTIONS[i] ? shift - SHIFT_OPTIONS[i] : SHIFT_OPTIONS[i] - shift;
+        uint32_t d2 = shift > SHIFT_OPTIONS[_shiftIdx] ? shift - SHIFT_OPTIONS[_shiftIdx] : SHIFT_OPTIONS[_shiftIdx] - shift;
+        if (d1 < d2) _shiftIdx = i;
+    }
+    _shift = SHIFT_OPTIONS[_shiftIdx];
+
     _txInput.clear();
     _txMode   = false;
     _txActive = false;
