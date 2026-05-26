@@ -14,7 +14,7 @@
 #include "WSPRScreen.h"
 #include "SpectrumScreen.h"
 #include "FreqScanScreen.h"
-#include "WeatherScreen.h"
+#include "TinyGSScreen.h"
 #include "SatelliteScreen.h"
 #include "CWScreen.h"
 #include "LoRaWANScreen.h"
@@ -32,7 +32,7 @@ const MenuTile MainMenu::TILES[16] = {
     { "WSPR",        "Beacon",     COL_WSPR,     4 },
     { "Spectrum",    "Analyzer",   COL_SPECTRUM, 5 },
     { "Scanner",     "Freq Scan",  COL_SCANNER,  6 },
-    { "Weather",     "ISM 433",    COL_WEATHER,  7 },
+    { "TinyGS",      "Pkt RX",     COL_CYAN,     7 },
     { "Satellite",   "Tracker",    COL_SAT,      8 },
     { "CW Beacon",   "Morse TX",   COL_CW,       9 },
     { "LoRaWAN",     "OTAA/ABP",   COL_LORAWAN, 10 },
@@ -145,11 +145,13 @@ void MainMenu::_drawIcon(lgfx::LovyanGFX* gfx, int x, int y,
             gfx->drawCircle(x+7, y+6, 5, col);
             gfx->drawLine(x+11, y+10, x+15, y+14, col);
             break;
-        case 7:  // Weather — cloud
-            gfx->fillCircle(x+5, y+7, 4, col);
-            gfx->fillCircle(x+10, y+5, 5, col);
-            gfx->fillCircle(x+14, y+8, 3, col);
-            gfx->fillRect(x+2, y+8, 15, 4, col);
+        case 7:  // TinyGS — cubesat body + downlink arrow
+            gfx->drawRect(x+5, y+1, 7, 7, col);           // sat body
+            gfx->drawFastHLine(x, y+4, 5, col);            // solar panel L
+            gfx->drawFastHLine(x+12, y+4, 4, col);         // solar panel R
+            gfx->drawFastVLine(x+8, y+8, 3, col);          // downlink beam
+            gfx->fillTriangle(x+5, y+11, x+11, y+11,      // downlink arrow
+                              x+8, y+14, col);
             break;
         case 8:  // Satellite — cross + circle
             gfx->drawCircle(x+8, y+6, 4, col);
@@ -242,7 +244,7 @@ void MainMenu::_activateTile(int idx) {
         case  4: _ui->push(new WSPRScreen(_disp, _radio, _gps, _ui));   break;
         case  5: _ui->push(new SpectrumScreen(_disp, _radio, _gps, _ui)); break;
         case  6: _ui->push(new FreqScanScreen(_disp, _radio, _gps, _ui)); break;
-        case  7: _ui->push(new WeatherScreen(_disp, _radio, _gps, _ui)); break;
+        case  7: _ui->push(new TinyGSScreen(_disp, _radio, _gps, _ui)); break;
         case  8: _ui->push(new SatelliteScreen(_disp, _radio, _gps, _ui)); break;
         case  9: _ui->push(new CWScreen(_disp, _radio, _gps, _ui));     break;
         case 10: _ui->push(new LoRaWANScreen(_disp, _radio, _gps, _ui)); break;

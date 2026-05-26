@@ -119,7 +119,7 @@
 // CelesTrak TLE source (amateur satellites group)
 #define TLE_SOURCE_URL  "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle"
 #define TLE_TIMEOUT_MS  15000              // HTTP fetch timeout
-#define TLE_MAX_SAT     20                 // max satellites to store
+#define TLE_MAX_SAT     60                 // max satellites to store
 
 // ---- GPS ----
 #define GPS_TIMEOUT_MS            5000
