@@ -56,14 +56,21 @@ private:
         double altKm;
         double rangeDotKmps;
         bool   visible;
-        float  dopplerHz;
+        float  dopplerHz;    // Doppler shift relative to DL (Hz)
+        float  dopplerUlHz;  // Doppler correction for UL TX (Hz)
     } _pos;
 
-    // Downlinks for known satellites (matched by NORAD ID or name)
-    struct KnownDownlink { uint32_t norad; float dlMHz; };
+    // Frequency table for known satellites (matched by NORAD ID)
+    struct KnownDownlink {
+        uint32_t    norad;
+        float       dlMHz;  // downlink (receive)
+        float       ulMHz;  // uplink (transmit), 0 = beacon-only
+        const char* mode;   // e.g. "V/U FM", "U/V SSB"
+    };
     static const KnownDownlink DOWNLINKS[];
-    static constexpr int       N_DOWNLINKS = 6;
+    static constexpr int       N_DOWNLINKS = 15;
 
+    const KnownDownlink* _lookupSat(const TLEEntry& e) const;
     float _getDownlink(const TLEEntry& e) const;
     void  _calcPos(const TLEEntry& e);
     void  _startRx(float corrFreqMHz);
@@ -85,7 +92,7 @@ private:
 
     // Fallback TLEs (hardcoded, compile-time)
     static const SatFallback FALLBACKS[];
-    static constexpr int     N_FALLBACKS = 6;
+    static constexpr int     N_FALLBACKS = 9;
     bool _loadedFallback = false;
     void _loadFallbackTLEs();
 };

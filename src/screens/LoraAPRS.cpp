@@ -142,15 +142,23 @@ void LoraAPRS::_txBeacon() {
         return;
     }
 
-    // Build APRS packet: header!position comment
     char posBuf[24];
     GPS::encodeAPRSPos(_gps->lat(), _gps->lon(), _symbol, posBuf, sizeof(posBuf));
 
-    char packet[128];
-    snprintf(packet, sizeof(packet), "%s>APRS,RFONLY:!%s %s",
-             _callsign, posBuf, _comment);
+    int altFt = (int)(_gps->altM() * 3.28084);
 
-    bool ok = _radio->loraTx((const uint8_t*)packet, strlen(packet));
+    // LoRa APRS mandatory 3-byte preamble + standard path for digipeating
+    uint8_t txBuf[170];
+    txBuf[0] = 0x3C;
+    txBuf[1] = 0xFF;
+    txBuf[2] = 0x01;
+    int n = snprintf((char*)txBuf + 3, sizeof(txBuf) - 4,
+                     "%s>APLRT1,WIDE1-1:!%s/A=%06d %s",
+                     _callsign, posBuf, altFt, _comment);
+    if (n < 0) n = 0;
+    size_t txLen = 3 + (size_t)n;
+
+    bool ok = _radio->loraTx(txBuf, txLen);
 
     char logLine[60];
     snprintf(logLine, sizeof(logLine), ok ? "[TX] %s" : "[TX ERR] %s", _callsign);
@@ -177,20 +185,29 @@ void LoraAPRS::_pollRx() {
 }
 
 void LoraAPRS::_decodeAndLog(const RxPacket& pkt) {
-    // Copy to a local null-terminated buffer (pkt.data is const here)
     char payload[257];
     size_t payLen = pkt.len < 256 ? pkt.len : 256;
     memcpy(payload, pkt.data, payLen);
     payload[payLen] = '\0';
-    char line[54];
 
-    // Try to extract callsign (first token before '>')
-    char* arrowPos = (char*)memchr(payload, '>', payLen);
+    // Strip LoRa APRS 3-byte preamble (0x3C 0xFF 0x01) if present
+    char* aprs = payload;
+    size_t aprsLen = payLen;
+    if (payLen >= 3 &&
+        (uint8_t)payload[0] == 0x3C &&
+        (uint8_t)payload[1] == 0xFF &&
+        (uint8_t)payload[2] == 0x01) {
+        aprs    = payload + 3;
+        aprsLen = payLen  - 3;
+    }
+
+    char line[54];
+    char* arrowPos = (char*)memchr(aprs, '>', aprsLen);
     if (arrowPos) {
-        size_t callLen = arrowPos - payload;
+        size_t callLen = (size_t)(arrowPos - aprs);
         if (callLen > 10) callLen = 10;
         char call[11];
-        memcpy(call, payload, callLen);
+        memcpy(call, aprs, callLen);
         call[callLen] = '\0';
         snprintf(line, sizeof(line), "[RX] %s  %.0fdBm SNR%.0f",
                  call, (double)pkt.rssi, (double)pkt.snr);

@@ -6,6 +6,7 @@
 #include "../utils/Storage.h"
 #include <Arduino.h>
 #include <cstring>
+#include <cstdlib>
 
 MeshScreen::MeshScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
@@ -14,8 +15,13 @@ void MeshScreen::onEnter() {
     _myNodeId = _makeNodeId();
     Storage::getString(NVS_KEY_MESH_NODE_ID, _myName, sizeof(_myName), "TDECK-1");
 
+    char buf[16];
+    Storage::getString(NVS_KEY_MESH_FREQ, buf, sizeof(buf), "433.175");
+    float meshFreq = strtof(buf, nullptr);
+    if (meshFreq < 100.f || meshFreq > 960.f) meshFreq = MESH_LORA_FREQ;
+
     LoRaCfg cfg;
-    cfg.freq     = MESH_LORA_FREQ;
+    cfg.freq     = meshFreq;
     cfg.bw       = MESH_LORA_BW;
     cfg.sf       = MESH_LORA_SF;
     cfg.cr       = MESH_LORA_CR;

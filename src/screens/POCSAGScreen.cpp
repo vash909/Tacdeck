@@ -2,7 +2,9 @@
 #include "../hardware/Display.h"
 #include "../hardware/GPS.h"
 #include "../ui/UIManager.h"
+#include "../utils/Storage.h"
 #include <Arduino.h>
+#include <cstdlib>
 
 constexpr float POCSAGScreen::BAUDS[];
 
@@ -10,6 +12,11 @@ POCSAGScreen::POCSAGScreen(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
 
 void POCSAGScreen::onEnter() {
+    char buf[16];
+    Storage::getString(NVS_KEY_POCSAG_FREQ, buf, sizeof(buf), "433.000");
+    float f = strtof(buf, nullptr);
+    _freq = (f >= 100.f && f <= 960.f) ? f : POCSAG_FREQ;
+
     FSKCfg cfg;
     cfg.freq    = _freq;
     cfg.bitRate = BAUDS[_baudIdx];

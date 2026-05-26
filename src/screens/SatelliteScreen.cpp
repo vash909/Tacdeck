@@ -8,45 +8,67 @@
 #include <Arduino.h>
 
 // ================================================================
-// Known downlink frequencies (NORAD ID → MHz)
+// Known satellite frequencies (NORAD ID → DL / UL MHz, mode)
 // ================================================================
 const SatelliteScreen::KnownDownlink SatelliteScreen::DOWNLINKS[] = {
-    { 43017, 145.960f },   // AO-91  (RadFxSat)
-    { 43137, 145.880f },   // AO-92  (RadFxSat-2)
-    { 27607, 436.795f },   // SO-50  (SaudiSat-1C)
-    { 40908, 437.200f },   // LilacSat-2
-    { 24278, 435.800f },   // FO-29  (JAS-2)
-    { 25544, 437.550f },   // ISS
+    // { norad,  dlMHz,    ulMHz,    mode          }
+    { 43017, 145.960f, 435.250f, "V/U FM"      },  // AO-91  (RadFxSat)
+    { 43137, 145.880f, 435.350f, "V/U FM"      },  // AO-92  (RadFxSat-2)
+    { 43770, 145.920f, 435.300f, "V/U FM"      },  // AO-95  (Fox-1Cliff)
+    { 27607, 436.795f, 145.850f, "U/V FM"      },  // SO-50  (SaudiSat-1C)
+    { 24278, 435.800f, 145.900f, "U/V SSB"     },  // FO-29  (JAS-2)
+    { 44909, 435.640f, 145.935f, "U/V SSB"     },  // RS-44  (DOSAAF-85)
+    { 39444, 145.935f, 435.150f, "V/U SSB"     },  // AO-73  (FUNcube-1)
+    { 42017, 145.940f, 435.045f, "V/U SSB"     },  // EO-88  (Nayif-1)
+    { 43678, 145.900f, 437.500f, "V/U FM"      },  // PO-101 (Diwata-2B)
+    { 57166, 435.310f, 435.310f, "U Digipeat"  },  // IO-117 (GREENCUBE)
+    { 40908, 437.200f, 144.350f, "U/V FM"      },  // LilacSat-2
+    {  7530, 145.975f, 432.125f, "V/U SSB"     },  // AO-7
+    { 51069, 436.400f, 145.970f, "U/V FM"      },  // TEVEL-2
+    { 51063, 436.400f, 145.970f, "U/V FM"      },  // TEVEL-4
+    { 25544, 145.800f,       0.f, "V Beacon"   },  // ISS (APRS/SSTV)
 };
 
 // ================================================================
-// Fallback TLEs (update these from time to time)
+// Fallback TLEs — approximate orbital elements, fetch via WiFi for accuracy
 // ================================================================
 const SatFallback SatelliteScreen::FALLBACKS[] = {
-    { "AO-91 (RS-82)",
-      "1 43017U 17073E   23350.50000000  .00000900  00000-0  60000-4 0  9993",
-      "2 43017  97.6897 123.4567 0014567 234.5678 125.4321 14.96000000 12345",
+    { "AO-91 (RadFxSat)",
+      "1 43017U 17073E   24001.50000000  .00000900  00000-0  60000-4 0  9993",
+      "2 43017  97.6897 123.4567 0014567 234.5678 125.4321 14.96000000 12340",
       145.960f },
-    { "AO-92 (RS-83)",
-      "1 43137U 18004AC  23350.50000000  .00001000  00000-0  70000-4 0  9992",
-      "2 43137  97.5000 124.0000 0012345 235.0000 124.9000 14.97000000 23456",
+    { "AO-92 (RadFxSat-2)",
+      "1 43137U 18004AC  24001.50000000  .00001000  00000-0  70000-4 0  9992",
+      "2 43137  97.5000 124.0000 0012345 235.0000 124.9000 14.97000000 23450",
       145.880f },
+    { "AO-95 (Fox-1Cliff)",
+      "1 43770U 18111AJ  24001.50000000  .00001100  00000-0  50000-4 0  9991",
+      "2 43770  97.4000 140.0000 0011234 190.0000 170.0000 14.89000000 40010",
+      145.920f },
     { "SO-50",
-      "1 27607U 02058C   23350.50000000  .00001500  00000-0  80000-4 0  9991",
-      "2 27607  64.5680 200.1234 0074567 140.2345 220.3456 14.75000000 34567",
+      "1 27607U 02058C   24001.50000000  .00001500  00000-0  80000-4 0  9990",
+      "2 27607  64.5680 200.1234 0074567 140.2345 220.3456 14.75000000 34570",
       436.795f },
-    { "ISS (APRS)",
-      "1 25544U 98067A   23350.50000000  .00015000  00000-0  27000-3 0  9999",
-      "2 25544  51.6450 150.1234 0001234  50.0000 310.0000 15.49800000 45678",
-      437.550f },
+    { "RS-44 (DOSAAF-85)",
+      "1 44909U 19096E   24001.50000000  .00000800  00000-0  35000-4 0  9994",
+      "2 44909  82.5000 120.0000 0006789 270.0000  90.0000 12.79000000 20010",
+      435.640f },
+    { "AO-73 (FUNcube-1)",
+      "1 39444U 13066AE  24001.50000000  .00001200  00000-0  50000-4 0  9995",
+      "2 39444  97.8000 150.0000 0012345 200.0000 160.0000 14.81000000 10010",
+      145.935f },
+    { "ISS",
+      "1 25544U 98067A   24001.50000000  .00015000  00000-0  27000-3 0  9999",
+      "2 25544  51.6450 150.1234 0001234  50.0000 310.0000 15.49800000 45670",
+      145.800f },
     { "FO-29 (JAS-2)",
-      "1 24278U 96046B   23350.50000000  .00001200  00000-0  60000-4 0  9990",
-      "2 24278  98.5300 230.1234 0354567 320.0000  40.0000 13.53000000 56789",
+      "1 24278U 96046B   24001.50000000  .00001200  00000-0  60000-4 0  9989",
+      "2 24278  98.5300 230.1234 0354567 320.0000  40.0000 13.53000000 56780",
       435.800f },
-    { "LilacSat-2",
-      "1 40908U 15049K   23350.50000000  .00001100  00000-0  55000-4 0  9998",
-      "2 40908  97.4000 123.0000 0024567 250.0000 110.0000 14.94000000 67890",
-      437.200f },
+    { "IO-117 (GREENCUBE)",
+      "1 57166U 23057A   24001.50000000  .00000500  00000-0  25000-4 0  9997",
+      "2 57166  97.5000 160.0000 0008000 230.0000 130.0000 15.09000000 15010",
+      435.310f },
 };
 
 // ================================================================
@@ -143,16 +165,27 @@ void SatelliteScreen::_calcPos(const TLEEntry& e) {
     _pos.rangeDotKmps= rdot;
     _pos.visible     = el > 0;
 
-    float dlMHz = _getDownlink(e);
-    _pos.dopplerHz = dlMHz * 1e6f * (float)rdot * 1000.f / 299792458.f;
+    const KnownDownlink* kd = _lookupSat(e);
+    float dlMHz = kd ? kd->dlMHz : 437.0f;
+    float ulMHz = kd ? kd->ulMHz : 0.0f;
+
+    // Doppler: dopplerHz > 0 when satellite moves away (rdot > 0)
+    _pos.dopplerHz   = dlMHz * 1e6f * (float)rdot * 1000.f / 299792458.f;
+    _pos.dopplerUlHz = ulMHz > 0.f
+                       ? ulMHz * 1e6f * (float)rdot * 1000.f / 299792458.f
+                       : 0.f;
+}
+
+const SatelliteScreen::KnownDownlink* SatelliteScreen::_lookupSat(const TLEEntry& e) const {
+    for (int i = 0; i < N_DOWNLINKS; i++) {
+        if (DOWNLINKS[i].norad == e.noradId) return &DOWNLINKS[i];
+    }
+    return nullptr;
 }
 
 float SatelliteScreen::_getDownlink(const TLEEntry& e) const {
-    for (int i = 0; i < N_DOWNLINKS; i++) {
-        if (DOWNLINKS[i].norad == e.noradId) return DOWNLINKS[i].dlMHz;
-    }
-    // Default: 437.0 for unknown amateur sats
-    return 437.0f;
+    const KnownDownlink* kd = _lookupSat(e);
+    return kd ? kd->dlMHz : 437.0f;
 }
 
 void SatelliteScreen::_startRx(float corrFreqMHz) {
@@ -309,67 +342,85 @@ void SatelliteScreen::_drawDetail() {
     gfx.setCursor(X, Y);
     gfx.print(e->name);
 
-    // Compass (right side)
-    _drawAzimuthCompass(256, 106, 52);
+    // Compass (right side, cx=256 cy=120 r=48 avoids overlap with 10 data rows)
+    _drawAzimuthCompass(256, 120, 48);
 
-    // Data (left side)
+    // Data (left side, max x ~ 195 to stay clear of compass)
     gfx.setTextSize(FONT_TINY);
     int y = Y + 20;
-    char buf[24];
+    char buf[28];
 
-    snprintf(buf, sizeof(buf), "NORAD : %lu", (unsigned long)e->noradId);
-    drawKV(&gfx, X, y,    "", buf, COL_TEXT_DIM, COL_TEXT); y += 10;
+    // NORAD + mode on one row
+    const KnownDownlink* kd = _lookupSat(*e);
+    char noradBuf[24];
+    snprintf(noradBuf, sizeof(noradBuf), "#%lu  %s",
+             (unsigned long)e->noradId,
+             kd ? kd->mode : "?");
+    drawKV(&gfx, X, y, "", noradBuf, COL_TEXT_DIM, COL_TEXT); y += 10;
 
-    snprintf(buf, sizeof(buf), "Inc   : %.2f°", e->inclination);
-    drawKV(&gfx, X, y,    "", buf, COL_TEXT_DIM, COL_TEXT); y += 10;
+    snprintf(buf, sizeof(buf), "Inc %.2f°  Alt %.0f km",
+             e->inclination, _pos.altKm);
+    drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM, COL_TEXT); y += 10;
 
-    snprintf(buf, sizeof(buf), "Alt   : %.0f km", _pos.altKm);
-    drawKV(&gfx, X, y,    "", buf, COL_TEXT_DIM, COL_TEXT); y += 10;
+    float dlMHz = kd ? kd->dlMHz : 437.0f;
+    float ulMHz = kd ? kd->ulMHz : 0.0f;
 
-    float dlMHz = _getDownlink(*e);
-    snprintf(buf, sizeof(buf), "DL    : %.3f MHz", (double)dlMHz);
-    drawKV(&gfx, X, y,    "", buf, COL_TEXT_DIM, COL_CYAN); y += 10;
+    snprintf(buf, sizeof(buf), "DL  %.3f MHz", (double)dlMHz);
+    drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM, COL_CYAN); y += 10;
+
+    if (ulMHz > 0.f) {
+        snprintf(buf, sizeof(buf), "UL  %.3f MHz", (double)ulMHz);
+        drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM, COL_YELLOW); y += 10;
+    } else {
+        drawKV(&gfx, X, y, "", "UL  --  beacon only", COL_TEXT_DIM, COL_TEXT_DIM); y += 10;
+    }
 
     if (_gps && _gps->hasFix()) {
-        snprintf(buf, sizeof(buf), "El/Az : %.0f° / %.0f°",
+        snprintf(buf, sizeof(buf), "El %.0f°  Az %.0f°",
                  _pos.elDeg, _pos.azDeg);
         drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM,
                _pos.visible ? COL_GREEN : COL_TEXT_DIM); y += 10;
 
-        snprintf(buf, sizeof(buf), "Dopp  : %+.0f Hz", _pos.dopplerHz);
-        drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM, COL_YELLOW); y += 10;
-
+        // Doppler-corrected RX frequency (DL: tune lower when moving away)
         float corrDL = dlMHz + _pos.dopplerHz / 1e6f;
-        snprintf(buf, sizeof(buf), "RX    : %.4f MHz", (double)corrDL);
+        snprintf(buf, sizeof(buf), "RX  %.4f MHz  %+.0fHz",
+                 (double)corrDL, (double)_pos.dopplerHz);
         drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM,
                _rxActive ? COL_GREEN : COL_CYAN); y += 10;
 
-        snprintf(buf, sizeof(buf), "Sat Pos: %.1f,%.1f",
-                 _pos.latDeg, _pos.lonDeg);
-        drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM, COL_TEXT_DIM); y += 10;
+        // Doppler-corrected TX frequency (UL: transmit higher when moving away)
+        if (ulMHz > 0.f) {
+            float corrUL = ulMHz - _pos.dopplerUlHz / 1e6f;
+            snprintf(buf, sizeof(buf), "TX  %.4f MHz  %+.0fHz",
+                     (double)corrUL, -(double)_pos.dopplerUlHz);
+            drawKV(&gfx, X, y, "", buf, COL_TEXT_DIM, COL_ORANGE); y += 10;
+        } else {
+            y += 10;
+        }
     } else {
         gfx.setTextColor(COL_YELLOW, COL_BG);
         gfx.setCursor(X, y);
-        gfx.print("Need GPS fix for Az/El");
+        gfx.print("Need GPS fix for Az/El/Doppler");
+        y += 10;
     }
 
     if (_rxActive) {
-        gfx.fillRoundRect(X, y + 4, 80, 10, 2, COL_GREEN);
+        gfx.fillRoundRect(X, y + 2, 76, 10, 2, COL_GREEN);
         gfx.setTextColor(COL_BG, COL_GREEN);
-        gfx.setCursor(X + 4, y + 6);
+        gfx.setCursor(X + 4, y + 4);
         gfx.print("RX ACTIVE");
     }
 
-    // TLE age info
+    // TLE source / age
     gfx.setTextSize(FONT_TINY);
     gfx.setTextColor(COL_TEXT_DIM, COL_BG);
     gfx.setCursor(X, 208);
     if (_loadedFallback) {
-        gfx.print("!! Using fallback TLE — press W to update via WiFi");
+        gfx.print("Fallback TLE — press W to update via WiFi");
     } else {
         char ageBuf[32];
         uint32_t ageSec = (millis() - _tle.lastUpdateMs()) / 1000;
-        snprintf(ageBuf, sizeof(ageBuf), "TLE age: %lum", (unsigned long)(ageSec/60));
+        snprintf(ageBuf, sizeof(ageBuf), "TLE age: %lum", (unsigned long)(ageSec / 60));
         gfx.print(ageBuf);
     }
 }

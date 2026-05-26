@@ -117,7 +117,7 @@
 // ---- Satellite + TLE ----
 #define SAT_DOPPLER_UPDATE_MS       500    // Doppler correction interval
 // CelesTrak TLE source (amateur satellites group)
-#define TLE_SOURCE_URL  "https://celestrak.org/TLE/catalog.php?GROUP=amateur&FORMAT=tle"
+#define TLE_SOURCE_URL  "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle"
 #define TLE_TIMEOUT_MS  15000              // HTTP fetch timeout
 #define TLE_MAX_SAT     20                 // max satellites to store
 
