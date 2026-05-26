@@ -6,6 +6,7 @@
 #include "../ui/Widgets.h"
 #include "../utils/Storage.h"
 #include <Arduino.h>
+#include <ctype.h>
 
 LoraAPRS::LoraAPRS(Display* d, Radio* r, GPS* g, UIManager* ui)
   : _disp(d), _radio(r), _gps(g), _ui(ui) {}
@@ -14,6 +15,20 @@ void LoraAPRS::onEnter() {
     // Load callsign from NVS
     Storage::getString(NVS_KEY_CALLSIGN, _callsign, sizeof(_callsign), "N0CALL-9");
     Storage::getString(NVS_KEY_APRS_COMMENT, _comment, sizeof(_comment), "TDeck-RFMaster");
+    char sym[4];
+    Storage::getString(NVS_KEY_APRS_SYMBOL, sym, sizeof(sym), ">");
+    _symbol = sym[0] ? sym[0] : '>';
+    char intervalStr[12];
+    Storage::getString(NVS_KEY_APRS_INTERVAL, intervalStr, sizeof(intervalStr), "120");
+    int32_t interval = atoi(intervalStr);
+    if (interval < 15) interval = 15;
+    if (interval > 3600) interval = 3600;
+    _txIntervalSec = (uint16_t)interval;
+
+    // APRS callsign is conventionally uppercase.
+    for (size_t i = 0; _callsign[i] != '\0'; i++) {
+        _callsign[i] = (char)toupper((unsigned char)_callsign[i]);
+    }
 
     // Configure LoRa for APRS
     LoRaCfg cfg;
@@ -146,17 +161,34 @@ void LoraAPRS::_txBeacon() {
     GPS::encodeAPRSPos(_gps->lat(), _gps->lon(), _symbol, posBuf, sizeof(posBuf));
 
     int altFt = (int)(_gps->altM() * 3.28084);
+    int speedKnots = (int)(_gps->speedKph() / 1.852f);
+    if (speedKnots < 0) speedKnots = 0;
+    if (speedKnots > 999) speedKnots = 999;
+    int course = (int)(_gps->data().courseDeg);
+    if (course < 0 || course > 359) course = 0;
 
     // LoRa APRS mandatory 3-byte preamble + standard path for digipeating
     uint8_t txBuf[170];
     txBuf[0] = 0x3C;
     txBuf[1] = 0xFF;
     txBuf[2] = 0x01;
-    int n = snprintf((char*)txBuf + 3, sizeof(txBuf) - 4,
-                     "%s>APLRT1,WIDE1-1:!%s/A=%06d %s",
-                     _callsign, posBuf, altFt, _comment);
+
+    int n;
+    if (_comment[0]) {
+        n = snprintf((char*)txBuf + 3, sizeof(txBuf) - 3,
+                     "%s>APLRT1,WIDE1-1:!%s%03d/%03d/A=%06d %s",
+                     _callsign, posBuf, course, speedKnots, altFt, _comment);
+    } else {
+        n = snprintf((char*)txBuf + 3, sizeof(txBuf) - 3,
+                     "%s>APLRT1,WIDE1-1:!%s%03d/%03d/A=%06d",
+                     _callsign, posBuf, course, speedKnots, altFt);
+    }
+
     if (n < 0) n = 0;
-    size_t txLen = 3 + (size_t)n;
+    size_t payloadLen = (size_t)n;
+    size_t maxPayload = sizeof(txBuf) - 3;
+    if (payloadLen > maxPayload) payloadLen = maxPayload;
+    size_t txLen = 3 + payloadLen;
 
     bool ok = _radio->loraTx(txBuf, txLen);
 

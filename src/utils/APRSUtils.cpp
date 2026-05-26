@@ -39,14 +39,22 @@ size_t APRSUtils::encodePosition(
     int course     = (int)courseDeg;
     int altFt      = (int)(altM * 3.28084f);
 
+    if (comment && comment[0]) {
+        return snprintf(buf, sz,
+            "%s>%s,WIDE1-1,WIDE2-1:!%s%c%s%c%03d/%03d/A=%06d %s",
+            callsign, dest,
+            latStr, symbolTable,
+            lonStr, symbolCode,
+            course, speedKnots, altFt,
+            comment);
+    }
+
     return snprintf(buf, sz,
-        "%s>%s,WIDE1-1,WIDE2-1:!%c%s%c%s%c%03d/%03d/A=%06d %s",
+        "%s>%s,WIDE1-1,WIDE2-1:!%s%c%s%c%03d/%03d/A=%06d",
         callsign, dest,
-        symbolTable, latStr,
-        symbolTable, lonStr,
-        symbolCode,
-        course, speedKnots, altFt,
-        comment ? comment : "");
+        latStr, symbolTable,
+        lonStr, symbolCode,
+        course, speedKnots, altFt);
 }
 
 // ================================================================

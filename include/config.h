@@ -44,7 +44,7 @@
 #define APRS_LORA_BW              125.0f
 #define APRS_LORA_SF                 12
 #define APRS_LORA_CR                  5     // 4/5
-#define APRS_LORA_SYNC             0x57    // APRS LoRa sync word
+#define APRS_LORA_SYNC             0x12    // LoRa APRS private sync (CA2RXU tracker-compatible)
 #define APRS_LORA_POWER              22
 
 // ---- FSK defaults ----
