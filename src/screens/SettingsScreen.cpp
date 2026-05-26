@@ -37,22 +37,49 @@ void SettingsScreen::onExit() {
 
 void SettingsScreen::_loadSettings() {
     const struct { const char* label; const char* key; const char* def; } defs[] = {
-        { "Callsign",      NVS_KEY_CALLSIGN,    "N0CALL-9"       },
-        { "APRS Comment",  NVS_KEY_APRS_COMMENT,"TDeck-RFMaster" },
-        { "APRS Symbol",   NVS_KEY_APRS_SYMBOL, ">"              },
-        { "APRS Int.(s)",  NVS_KEY_APRS_INTERVAL,"120"           },
-        { "LoRa Freq(MHz)",NVS_KEY_LORA_FREQ,   "433.000"        },
-        { "LoRa Power(dBm)",NVS_KEY_LORA_POWER, "22"             },
-        { "WSPR Call",     NVS_KEY_WSPR_CALL,   "N0CALL"         },
-        { "WSPR Grid",     NVS_KEY_WSPR_GRID,   "AA00"           },
-        { "CW Text",       NVS_KEY_CW_TEXT,     "CQ DE TACDECK K"},
-        { "CW Freq(MHz)",  NVS_KEY_CW_FREQ,     "433.500"        },
-        { "Mesh NodeName", NVS_KEY_MESH_NODE_ID,"TACDECK-1"      },
-        // WiFi (for TLE fetch)   — shown as last 2 items
-        // NOTE: NUM_ITEMS must be 13 in header
-        { "WiFi SSID",     NVS_KEY_WIFI_SSID,   ""               },
-        { "WiFi Password", NVS_KEY_WIFI_PASS,   ""               },
+        // General
+        { "Callsign",        NVS_KEY_CALLSIGN,     "N0CALL-9"        },
+        { "Brightness",      NVS_KEY_BRIGHTNESS,   "180"             },
+        // LoRa Chat
+        { "LoRa Freq(MHz)",  NVS_KEY_LORA_FREQ,    "433.000"         },
+        { "LoRa SF",         NVS_KEY_LORA_SF,      "9"               },
+        { "LoRa BW(kHz)",    NVS_KEY_LORA_BW,      "125"             },
+        { "LoRa CR",         NVS_KEY_LORA_CR,      "7"               },
+        { "LoRa Power(dBm)", NVS_KEY_LORA_POWER,   "22"              },
+        { "LoRa Sync",       NVS_KEY_LORA_SYNC,    "18"              },
+        // APRS
+        { "APRS Comment",    NVS_KEY_APRS_COMMENT, "TDeck-RFMaster"  },
+        { "APRS Symbol",     NVS_KEY_APRS_SYMBOL,  ">"               },
+        { "APRS Int.(s)",    NVS_KEY_APRS_INTERVAL,"120"             },
+        // WSPR
+        { "WSPR Call",       NVS_KEY_WSPR_CALL,    "N0CALL"          },
+        { "WSPR Grid",       NVS_KEY_WSPR_GRID,    "AA00"            },
+        { "WSPR Power(dBm)", NVS_KEY_WSPR_PWR,     "10"              },
+        { "WSPR Freq(MHz)",  NVS_KEY_WSPR_FREQ,    "433.920"         },
+        // CW Beacon
+        { "CW Text",         NVS_KEY_CW_TEXT,      "CQ DE TACDECK K" },
+        { "CW Freq(MHz)",    NVS_KEY_CW_FREQ,      "433.500"         },
+        { "CW Speed(WPM)",   NVS_KEY_CW_WPM,       "20"              },
+        // Mesh
+        { "Mesh NodeName",   NVS_KEY_MESH_NODE_ID, "TACDECK-1"       },
+        { "Mesh Freq(MHz)",  NVS_KEY_MESH_FREQ,    "433.175"         },
+        // RTTY
+        { "RTTY Freq(MHz)",  NVS_KEY_RTTY_FREQ,    "434.000"         },
+        { "RTTY Baud",       NVS_KEY_RTTY_BAUD,    "45.45"           },
+        { "RTTY Shift(Hz)",  NVS_KEY_RTTY_SHIFT,   "450"             },
+        // Scanner
+        { "Scan Start(MHz)", NVS_KEY_SCAN_START,   "430.000"         },
+        { "Scan End(MHz)",   NVS_KEY_SCAN_END,      "440.000"         },
+        { "Scan Step(kHz)",  NVS_KEY_SCAN_STEP,    "12.5"            },
+        { "Scan Squelch(dB)",NVS_KEY_SCAN_SQUELCH, "-90"             },
+        // POCSAG
+        { "POCSAG Freq(MHz)",NVS_KEY_POCSAG_FREQ,  "433.000"         },
+        // WiFi
+        { "WiFi SSID",       NVS_KEY_WIFI_SSID,    ""                },
+        { "WiFi Password",   NVS_KEY_WIFI_PASS,    ""                },
     };
+    static_assert(sizeof(defs)/sizeof(defs[0]) == NUM_ITEMS,
+                  "NUM_ITEMS mismatch in SettingsScreen");
 
     for (int i = 0; i < NUM_ITEMS; i++) {
         _items[i].label   = defs[i].label;
@@ -192,9 +219,13 @@ void SettingsScreen::onKey(char key) {
         return;
     }
     if (key == 's' || key == 'S') {
-        if (_editing) _commitEdit(_selIdx);
-        _saveSettings();
-        _dirty = true;
+        if (_editing) {
+            _editBox.input(key);
+            _dirty = true;
+        } else {
+            _saveSettings();
+            _dirty = true;
+        }
         return;
     }
     if (!_editing) {

@@ -129,21 +129,42 @@
 #define NVS_NAMESPACE          "rfmaster"
 #define NVS_KEY_CALLSIGN       "callsign"
 #define NVS_KEY_GRID           "grid"
+// LoRa Chat
 #define NVS_KEY_LORA_FREQ      "lora_freq"
 #define NVS_KEY_LORA_SF        "lora_sf"
 #define NVS_KEY_LORA_BW        "lora_bw"
+#define NVS_KEY_LORA_CR        "lora_cr"
 #define NVS_KEY_LORA_POWER     "lora_pwr"
 #define NVS_KEY_LORA_SYNC      "lora_sync"
+// APRS
 #define NVS_KEY_APRS_COMMENT   "aprs_cmt"
 #define NVS_KEY_APRS_SYMBOL    "aprs_sym"
 #define NVS_KEY_APRS_INTERVAL  "aprs_int"
+// Display
 #define NVS_KEY_BRIGHTNESS     "bright"
+// WSPR
 #define NVS_KEY_WSPR_CALL      "wspr_call"
 #define NVS_KEY_WSPR_GRID      "wspr_grid"
 #define NVS_KEY_WSPR_PWR       "wspr_pwr"
+#define NVS_KEY_WSPR_FREQ      "wspr_freq"
+// CW
 #define NVS_KEY_CW_TEXT        "cw_text"
 #define NVS_KEY_CW_FREQ        "cw_freq"
+#define NVS_KEY_CW_WPM         "cw_wpm"
+// Mesh
 #define NVS_KEY_MESH_NODE_ID   "mesh_id"
+#define NVS_KEY_MESH_FREQ      "mesh_freq"
+// RTTY
+#define NVS_KEY_RTTY_FREQ      "rtty_freq"
+#define NVS_KEY_RTTY_BAUD      "rtty_baud"
+#define NVS_KEY_RTTY_SHIFT     "rtty_shift"
+// Scanner
+#define NVS_KEY_SCAN_START     "scan_start"
+#define NVS_KEY_SCAN_END       "scan_end"
+#define NVS_KEY_SCAN_STEP      "scan_step"
+#define NVS_KEY_SCAN_SQUELCH   "scan_squelch"
+// POCSAG
+#define NVS_KEY_POCSAG_FREQ    "pocsag_freq"
 // WiFi
 #define NVS_KEY_WIFI_SSID      "wifi_ssid"
 #define NVS_KEY_WIFI_PASS      "wifi_pass"

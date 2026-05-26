@@ -380,23 +380,23 @@ void MeshScreen::onKey(char key) {
         }
         return;
     }
-
-    if (key == KEY_TAB || key == '\t') {
-        _tabSel = (_tabSel + 1) % 2; _dirty = true; return;
-    }
-    if (key == 't' || key == 'T') {
-        if (!_typing) { _typing = true; _chatInput.clear(); _dirty = true; }
-        return;
-    }
     if (_typing) {
         if (key == KEY_ENTER) {
             _sendMessage(_chatInput.buf);
             _chatInput.clear();
             _typing = false;
+            _dirty = true;
             return;
         }
         _chatInput.input(key);
         _drawChat();
+        return;
+    }
+    if (key == KEY_TAB || key == '\t') {
+        _tabSel = (_tabSel + 1) % 2; _dirty = true; return;
+    }
+    if (key == 't' || key == 'T') {
+        _typing = true; _chatInput.clear(); _dirty = true; return;
     }
     if (key == 'b' || key == 'B') { _sendBeacon(); }
 }

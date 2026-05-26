@@ -189,15 +189,15 @@ void LoraChat::onKey(char key) {
         }
         return;
     }
-    if (key == 't' || key == 'T') {
-        _typing = true;
-        _dirty  = true;
-        return;
-    }
     if (_typing) {
         if (key == KEY_ENTER) { _sendMsg(); return; }
         _input.input(key);
         _drawInputArea();
+        return;
+    }
+    if (key == 't' || key == 'T') {
+        _typing = true;
+        _dirty  = true;
         return;
     }
 }

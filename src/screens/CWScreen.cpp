@@ -215,20 +215,14 @@ void CWScreen::_drawLiveStatus() {
 
 // ================================================================
 void CWScreen::onKey(char key) {
-    if (key == 'b' || key == 'B') {
-        _beaconEnabled = !_beaconEnabled;
-        if (_beaconEnabled) _lastTxMs = millis() - _txIntervalSec * 1000UL;
-        _dirty = true;
-        return;
-    }
-    if (key == 't' || key == 'T') {
-        if (!_editing) {
-            _editing = true;
-            _msgInput.clear();
-        } else {
+    if (key == KEY_ESC) {
+        if (_editing) {
             _editing = false;
+            _msgInput.clear();
+            _dirty = true;
+        } else {
+            _ui->pop();
         }
-        _dirty = true;
         return;
     }
     if (_editing) {
@@ -241,6 +235,18 @@ void CWScreen::onKey(char key) {
             return;
         }
         _msgInput.input(key);
+        _dirty = true;
+        return;
+    }
+    if (key == 'b' || key == 'B') {
+        _beaconEnabled = !_beaconEnabled;
+        if (_beaconEnabled) _lastTxMs = millis() - _txIntervalSec * 1000UL;
+        _dirty = true;
+        return;
+    }
+    if (key == 't' || key == 'T') {
+        _editing = true;
+        _msgInput.clear();
         _dirty = true;
         return;
     }

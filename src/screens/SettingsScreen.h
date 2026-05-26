@@ -32,7 +32,7 @@ private:
     GPS*       _gps;
     UIManager* _ui;
 
-    static constexpr int NUM_ITEMS = 13;
+    static constexpr int NUM_ITEMS = 30;
     SettingItem _items[NUM_ITEMS];
     int         _selIdx   = 0;
     int         _viewOffset = 0;
