@@ -100,7 +100,11 @@ void LoraAPRS::_drawRXLog() {
 void LoraAPRS::_drawTXPanel() {
     auto& gfx = _disp->gfx();
     int y = 72;
-    gfx.fillRect(0, y, 320, 140, COL_BG);
+    // Fixed rows (callsign/comment/interval/rxcount) use drawKV with COL_BG
+    // background and overwrite themselves.  Only the two GPS content rows at
+    // y+36 and y+48 alternate between different layouts (position+grid vs
+    // "Waiting..."), so clear just those 24 px instead of the full 140 px.
+    gfx.fillRect(0, y + 36, 320, 24, COL_BG);
 
     drawKV(&gfx, 4, y,     "Callsign : ", _callsign);
     drawKV(&gfx, 4, y+12,  "Comment  : ", _comment);

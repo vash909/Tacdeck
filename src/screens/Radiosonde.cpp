@@ -130,7 +130,19 @@ void Radiosonde::_drawStatusLine() {
 void Radiosonde::_drawSondeData() {
     auto& gfx = _disp->gfx();
     constexpr int Y = 68;
-    gfx.fillRect(0, Y, 320, 80, COL_BG);
+    // Full area clear only on state transition (!_hasFrame ↔ _hasFrame) to
+    // avoid the 1Hz flash while the layout is stable.  Between-frame updates
+    // only need the FONT_LARGE altitude text area cleared (variable width).
+    static bool lastHasFrame = false;
+    if (_hasFrame != lastHasFrame) {
+        gfx.fillRect(0, Y, 320, 80, COL_BG);
+        lastHasFrame = _hasFrame;
+    }
+    if (_hasFrame) {
+        // Altitude in FONT_LARGE can shorten ("12.3 km" → "9.8 km") leaving
+        // a stale character; clear just that line before redrawing.
+        gfx.fillRect(4, Y + 18, 200, 20, COL_BG);
+    }
 
     if (!_hasFrame) {
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);

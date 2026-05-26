@@ -270,9 +270,11 @@ void WeatherScreen::_drawStatusLine() {
 void WeatherScreen::_drawSensorGrid() {
     auto& gfx = _disp->gfx();
     constexpr int Y0 = 73;
-    gfx.fillRect(0, Y0, 320, 140, COL_BG);
 
     if (_sensorCount == 0) {
+        // No sensors yet — _rxReady can toggle so the text can change;
+        // a full clear here is fine (nothing useful on screen yet).
+        gfx.fillRect(0, Y0, 320, 140, COL_BG);
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);
         gfx.setTextSize(FONT_SMALL);
         gfx.setCursor(50, Y0 + 40);
@@ -282,6 +284,15 @@ void WeatherScreen::_drawSensorGrid() {
         gfx.print(_rxReady ? "Oregon Sci / Acurite / Generic" : _rxInitMsg);
         return;
     }
+
+    // First sensor arrival: clear once to erase old "Listening..." text.
+    // After that, each sensor card already has its own fillRect background,
+    // so no full-area clear is needed at 1 Hz — avoids the visible flash.
+    static int lastSensorCount = 0;
+    if (lastSensorCount == 0) {
+        gfx.fillRect(0, Y0, 320, 140, COL_BG);
+    }
+    lastSensorCount = _sensorCount;
 
     for (int i = 0; i < _sensorCount && i < 4; i++) {
         const WeatherSensor& s = _sensors[i];

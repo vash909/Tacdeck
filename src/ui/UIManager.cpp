@@ -33,7 +33,9 @@ void UIManager::replace(Screen* screen) {
 }
 
 void UIManager::update() {
-    if (_sb)   _sb->update();
+    // NOTE: status bar is updated at 1 Hz directly in main.cpp — do NOT call
+    // _sb->update() here (was being called at 20 fps causing unnecessary
+    // partial redraws and visible flicker in the time/RSSI regions).
     if (!_stack.empty()) _stack.back()->update();
 }
 

@@ -60,7 +60,13 @@ void GPSScreen::_drawAll() {
 
 void GPSScreen::_drawDataTab() {
     auto& gfx = _disp->gfx();
-    gfx.fillRect(0, 60, 320, 156, COL_BG);
+    // Do NOT use a single fillRect(0,60,320,156) here — it clears 50 kpx and
+    // causes a visible flash at 1 Hz.  All text is drawn with COL_BG as the
+    // text background so it overwrites itself.  Only clear the compass widget
+    // area (70×70 px) because it is drawn conditionally.
+    constexpr int COMPASS_CX = 270, COMPASS_CY = 140, COMPASS_R = 30;
+    gfx.fillRect(COMPASS_CX - COMPASS_R - 6, COMPASS_CY - COMPASS_R - 6,
+                 2*(COMPASS_R + 6), 2*(COMPASS_R + 6), COL_BG);
     int y = 60;
 
     if (!_gps) {
@@ -150,7 +156,7 @@ void GPSScreen::_drawDataTab() {
 
 void GPSScreen::_drawGridTab() {
     auto& gfx = _disp->gfx();
-    gfx.fillRect(0, 60, 320, 156, COL_BG);
+    // No large fillRect — all text uses COL_BG as background and overwrites itself.
     int y = 62;
 
     if (!_gps || !_gps->hasFix()) {

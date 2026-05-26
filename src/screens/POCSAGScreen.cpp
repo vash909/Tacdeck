@@ -178,15 +178,25 @@ void POCSAGScreen::_drawMessages() {
     auto& gfx = _disp->gfx();
     constexpr int Y0 = 83;
     constexpr int H  = 16;
-    gfx.fillRect(0, Y0, 320, 130, COL_BG);
 
     if (_msgCount == 0) {
+        // No messages yet — full clear is fine here (nothing useful on screen).
+        gfx.fillRect(0, Y0, 320, 130, COL_BG);
         gfx.setTextColor(COL_TEXT_DIM, COL_BG);
         gfx.setTextSize(FONT_SMALL);
         gfx.setCursor(50, Y0 + 30);
         gfx.print("Listening for pages...");
         return;
     }
+
+    // First message arrival: clear once to erase old "Listening..." text.
+    // After that, per-row fills (below) keep content up to date without a
+    // full-area clear at 1 Hz.
+    static int lastMsgCount = 0;
+    if (lastMsgCount == 0) {
+        gfx.fillRect(0, Y0, 320, 130, COL_BG);
+    }
+    lastMsgCount = _msgCount;
 
     gfx.setTextSize(FONT_TINY);
     for (int i = 0; i < _msgCount && i < 8; i++) {

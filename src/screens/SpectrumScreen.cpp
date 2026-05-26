@@ -66,14 +66,26 @@ void SpectrumScreen::_sweepStep() {
     float freq = _binToFreq(_curBin);
     float rssi = _radio->getChannelRSSI(freq);
 
-    // Exponential moving average for smoothing
-    _rssi[_curBin] = _rssi[_curBin] * 0.6f + rssi * 0.4f;
+    // Direct RSSI — no EMA.  EMA caused each new sweep to start with
+    // different (higher) values than the trailing end of the previous sweep,
+    // producing a visible "step" discontinuity (different color/height) at
+    // the wrap point.  Without EMA the display updates immediately.
+    _rssi[_curBin] = rssi;
 
     if (_peakHold && rssi > _peakRssi[_curBin])
         _peakRssi[_curBin] = rssi;
 
     _curBin++;
-    if (_curBin >= NUM_BINS) _curBin = 0;
+    if (_curBin >= NUM_BINS) {
+        _curBin = 0;
+        // On wrap: reset all bins so old bars don't persist into the new sweep.
+        // Without the reset, bins not yet redrawn in the new pass still show
+        // stale (higher-converged) values from the previous pass.
+        if (!_peakHold) {
+            for (int i = 0; i < NUM_BINS; i++) _rssi[i] = -120.f;
+            _drawPlot();   // clear all bars immediately — fast (all h=0)
+        }
+    }
 }
 
 float SpectrumScreen::_binToFreq(int bin) const {

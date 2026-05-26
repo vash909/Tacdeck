@@ -73,13 +73,34 @@ void SatelliteScreen::onExit() {
 }
 
 // ================================================================
+// Partial update for live position data — avoids the full 216-px screen
+// clear that was triggering a visible 2 Hz flicker when _dirty was set
+// on every position recalculation.
+// ================================================================
+void SatelliteScreen::_refreshLivePos() {
+    if (_view == VIEW_LIST) {
+        // Only redraw the visible list rows — per-row fills (28 px each) are
+        // much less visible than a single 216-px clear.
+        _drawList();
+    } else if (_view == VIEW_DETAIL) {
+        // _drawDetail() uses drawKV() / setTextColor(fg,bg) for each line so
+        // it does not need a preceding fillRect.  The compass sub-region must
+        // be cleared explicitly before redraw to erase the old dot.
+        constexpr int CX = 256, CY = 106, R = 52;
+        _disp->gfx().fillRect(CX - R - 6, CY - R - 6,
+                               2*(R + 6), 2*(R + 6), COL_BG);
+        _drawDetail();
+    }
+}
+
 void SatelliteScreen::update() {
-    // Recalculate position every 500ms
+    // Recalculate position every 500ms and do a PARTIAL update (no full-screen
+    // clear) to avoid the 2 Hz flicker that the old _dirty=true approach caused.
     static uint32_t lastCalc = 0;
     if (millis() - lastCalc > 500 && _tle.count() > 0 && _selIdx < _tle.count()) {
         lastCalc = millis();
         _calcPos(*_tle.get(_selIdx));
-        _dirty = true;
+        if (!_dirty) _refreshLivePos();
     }
 
     if (_dirty || _fetching) {

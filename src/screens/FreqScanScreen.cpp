@@ -48,18 +48,22 @@ void FreqScanScreen::_buildChannelList() {
 
 void FreqScanScreen::update() {
     if (_scanning) {
+        // _scanStep() already sets _dirty when a new lock/unlock event occurs.
+        // We also redraw the list whenever the current-channel index advances
+        // so the highlight moves without waiting for a dirty-flag redraw.
+        int prevIdx = _curIdx;
         _scanStep();
+        if (!_dirty && _curIdx != prevIdx) {
+            // Only update the channel list rows — avoid the full-screen clear
+            // from _drawAll() and avoid the 200 ms periodic fillRect+redraw
+            // that was causing visible flicker every 5 frames.
+            _drawChannelList();
+        }
     }
 
     if (_dirty) {
         _drawAll();
         _dirty = false;
-    }
-
-    static uint32_t lastRefresh = 0;
-    if (millis() - lastRefresh > 200) {
-        lastRefresh = millis();
-        _drawChannelList();
     }
 }
 
@@ -145,7 +149,10 @@ void FreqScanScreen::_drawChannelList() {
     constexpr int LINE = 10;
     constexpr int ROWS = 14;
 
-    gfx.fillRect(0, Y0, 320, ROWS * LINE, COL_BG);
+    // Do NOT use a single fillRect(0, Y0, 320, ROWS*LINE, COL_BG) here —
+    // that clears 140 px in one shot and causes a visible flash every scan
+    // step.  Instead, fill each row's background individually so the display
+    // always shows *something* valid (no momentary black strip).
     gfx.setTextSize(FONT_TINY);
 
     for (int i = 0; i < ROWS && (i + _viewOffset) < _numChannels; i++) {
@@ -157,8 +164,10 @@ void FreqScanScreen::_drawChannelList() {
         bool isCurrent = (idx == _curIdx);
         bool isActive  = ch.rssi > _squelch;
 
-        // Row background
-        if (isLocked) gfx.fillRect(0, y, 320, LINE, COL_BG_PANEL);
+        // Row background — fill every row (not just locked) so stale content
+        // from a previous view offset is always overwritten.
+        uint16_t rowBg = isLocked ? COL_BG_PANEL : COL_BG;
+        gfx.fillRect(0, y, 320, LINE, rowBg);
 
         // Indicator
         uint16_t indCol = isLocked  ? COL_GREEN  :

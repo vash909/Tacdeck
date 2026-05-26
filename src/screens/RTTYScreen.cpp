@@ -31,6 +31,16 @@ void RTTYScreen::update() {
         _drawAll();
         _dirty = false;
     }
+    // Animate cursor blink in TX text input mode at 2 Hz without a full
+    // _drawAll() redraw. Input box is at Y+12 = 86 (see _drawTXPanel).
+    if (_txMode && !_txActive && !_dirty) {
+        static uint32_t lastBlinkPhase = 0;
+        uint32_t phase = millis() / 500 % 2;
+        if (phase != lastBlinkPhase) {
+            lastBlinkPhase = phase;
+            _txInput.draw(&_disp->gfx(), 4, 86, 312, COL_RTTY);
+        }
+    }
 }
 
 void RTTYScreen::_drawAll() {

@@ -78,6 +78,7 @@ private:
     void _drawDetail();
     void _drawFetchProgress();
     void _drawAzimuthCompass(int cx, int cy, int r);
+    void _refreshLivePos();   // partial position update (no full-screen clear)
 
     char  _fetchStatus[48] = "";
     int   _fetchPct = 0;

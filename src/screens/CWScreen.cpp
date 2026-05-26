@@ -51,6 +51,18 @@ void CWScreen::update() {
         _lastLiveUpdateMs = millis();
         if (!_dirty) _drawLiveStatus();
     }
+
+    // Animate the cursor in the manual-send input box at 2 Hz without
+    // triggering a full-screen redraw. When not txing the input box is
+    // always at y=108 (see _drawAll layout).
+    if (_editing && !_dirty) {
+        static uint32_t lastBlinkPhase = 0;
+        uint32_t phase = millis() / 500 % 2;
+        if (phase != lastBlinkPhase) {
+            lastBlinkPhase = phase;
+            _msgInput.draw(&_disp->gfx(), 4, 108, 280, COL_CW);
+        }
+    }
 }
 
 void CWScreen::_txMessage(const char* msg) {
