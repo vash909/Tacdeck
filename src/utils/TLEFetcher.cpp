@@ -94,7 +94,7 @@ int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
     int  bIdx = 0;
     uint32_t timeout = millis() + TLE_TIMEOUT_MS;
 
-    while (http.connected() && millis() < timeout && _count < MAX_ENTRIES) {
+    while ((http.connected() || stream->available()) && millis() < timeout && _count < MAX_ENTRIES) {
         if (stream->available()) {
             char c = stream->read();
             if (c == '\n' || c == '\r') {
