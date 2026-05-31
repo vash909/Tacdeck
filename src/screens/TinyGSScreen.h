@@ -19,10 +19,10 @@ class Display; class GPS; class UIManager;
 #define TINYGS_EL_MIN   5.0
 // Packet ring buffer depth
 #define TINYGS_PKT_BUF  16
-// CelesTrak query for exactly our 9 TinyGS satellites
+// Fetch full amateur-satellite group and filter to our 9 NORAD IDs client-side.
+// More reliable than CATNR multi-query (some older sats may be absent there).
 #define TINYGS_TLE_URL \
-    "https://celestrak.org/NORAD/elements/gp.php" \
-    "?CATNR=44829,47960,47961,47966,48903,51019,51044,52763,54873&FORMAT=tle"
+    "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle"
 
 // ----------------------------------------------------------------
 struct TGSSat {

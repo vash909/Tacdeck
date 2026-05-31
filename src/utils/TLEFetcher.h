@@ -50,9 +50,12 @@ public:
     const char* ipAddress() const;
 
     // Download TLE file from CelesTrak and parse
-    // Returns number of entries fetched (0 = error)
+    // If filterIds/filterCount are provided, only entries matching those NORAD IDs are stored.
+    // Returns number of entries stored (0 = error or no match)
     int fetchTLE(const char* url = TLE_SOURCE_URL,
-                 TLEProgressCb cb = nullptr);
+                 TLEProgressCb cb = nullptr,
+                 const uint32_t* filterIds = nullptr,
+                 int filterCount = 0);
 
     // Access fetched data
     int         count()         const { return _count; }

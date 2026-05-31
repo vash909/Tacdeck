@@ -96,7 +96,7 @@ float TinyGSScreen::_dopplerMHz(int satIdx) const {
 
 // ================================================================
 void TinyGSScreen::_calcAllPositions() {
-    if (!_gps || !_gps->hasFix()) return;
+    bool hasGPS = _gps && _gps->hasFix();
 
     for (int i = 0; i < N_SATS; i++) {
         const TLEEntry* e = _tle.findByNorad(SATS[i].norad);
@@ -104,7 +104,14 @@ void TinyGSScreen::_calcAllPositions() {
             _state[i] = { -90.0, 0.0, 0.0, false, false };
             continue;
         }
+        // hasTLE is set regardless of GPS — it reflects data availability, not visibility
         _state[i].hasTLE = true;
+
+        if (!hasGPS) {
+            _state[i].visible = false;
+            _state[i].elDeg   = -90.0;
+            continue;
+        }
 
         double satLat, satLon, satAlt;
         if (!TLEFetcher::propagate(*e, _deltaTSec(*e), satLat, satLon, satAlt)) {
@@ -254,9 +261,13 @@ void TinyGSScreen::_doWiFiFetch() {
     // Use targeted CATNR URL so all 9 TinyGS sats are fetched
     // (overrides shared TLE cache; re-fetch in Satellite Tracker
     //  to restore full amateur-satellite list there).
+    // Build NORAD filter from our satellite table
+    uint32_t filterIds[N_SATS];
+    for (int i = 0; i < N_SATS; i++) filterIds[i] = SATS[i].norad;
+
     bool ok = _tle.connectWiFi(ssid, pass, 15000, cb);
     if (ok) {
-        int n = _tle.fetchTLE(TINYGS_TLE_URL, cb);
+        int n = _tle.fetchTLE(TINYGS_TLE_URL, cb, filterIds, N_SATS);
         _loadedFallback = (n <= 0);
         _tle.disconnectWiFi();
     }

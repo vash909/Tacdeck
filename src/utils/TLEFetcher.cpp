@@ -58,7 +58,8 @@ const char* TLEFetcher::ipAddress() const {
 // ================================================================
 // Download + parse TLE from CelesTrak
 // ================================================================
-int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
+int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb,
+                          const uint32_t* filterIds, int filterCount) {
     if (!isConnected()) {
         if (cb) cb("Not connected to WiFi", 0);
         return 0;
@@ -89,9 +90,10 @@ int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
 
     _count = 0;
     char line0[25] = "", line1[70] = "", line2[70] = "";
-    int  lineState = 0;   // 0=expect name, 1=expect L1, 2=expect L2
+    int  lineState = 0;
     char lineBuf[80];
     int  bIdx = 0;
+    int  totalSeen = 0;  // total TLE sets parsed (for progress, ignoring filter)
     uint32_t timeout = millis() + TLE_TIMEOUT_MS;
 
     while ((http.connected() || stream->available()) && millis() < timeout && _count < MAX_ENTRIES) {
@@ -102,7 +104,7 @@ int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
                 lineBuf[bIdx] = '\0';
                 bIdx = 0;
 
-                // Trim trailing whitespace
+                // Trim trailing whitespace / CR
                 int tlen = strlen(lineBuf);
                 while (tlen > 0 && (lineBuf[tlen-1] == ' ' || lineBuf[tlen-1] == '\r'))
                     lineBuf[--tlen] = '\0';
@@ -116,15 +118,29 @@ int TLEFetcher::fetchTLE(const char* url, TLEProgressCb cb) {
                 } else if (lineBuf[0] == '2' && lineBuf[1] == ' ' && strlen(lineBuf) >= 69) {
                     strncpy(line2, lineBuf, sizeof(line2) - 1);
                     line2[sizeof(line2) - 1] = '\0';
-                    // We have a complete TLE set
+
                     TLEEntry entry;
                     if (parseTLE(line0, line1, line2, entry)) {
-                        _entries[_count++] = entry;
-                        int pct = 60 + (_count * 35 / MAX_ENTRIES);
-                        if (cb && (_count % 2 == 0)) {
-                            char msg[32];
-                            snprintf(msg, sizeof(msg), "Parsed %d sats...", _count);
-                            cb(msg, min(pct, 95));
+                        totalSeen++;
+                        // Apply NORAD ID filter if provided
+                        bool accept = true;
+                        if (filterIds && filterCount > 0) {
+                            accept = false;
+                            for (int f = 0; f < filterCount; f++) {
+                                if (filterIds[f] == entry.noradId) { accept = true; break; }
+                            }
+                        }
+                        if (accept) {
+                            _entries[_count++] = entry;
+                            Serial.printf("[TLE] +%s (NORAD %lu)\n",
+                                          entry.name, (unsigned long)entry.noradId);
+                        }
+                        // Progress based on total seen (not filtered count)
+                        int pct = 60 + min(totalSeen * 35 / 150, 35);
+                        if (cb && (totalSeen % 5 == 0)) {
+                            char msg[36];
+                            snprintf(msg, sizeof(msg), "Scanning... %d found", _count);
+                            cb(msg, pct);
                         }
                     }
                     line0[0] = '\0'; line1[0] = '\0'; line2[0] = '\0';
